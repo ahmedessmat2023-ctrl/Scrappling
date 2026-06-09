@@ -90,6 +90,185 @@ export default function App() {
   const [scrapedViewMode, setScrapedViewMode] = useState<"raw" | "list" | "card" | "visualizer">("list");
   const [frameWidth, setFrameWidth] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
+  // Theme support
+  const [currentTheme, setCurrentTheme] = useState<"gemini-dark" | "gemini-light" | "groq-dark" | "groq-light" | "mistral-dark" | "mistral-light" | "claude-dark" | "claude-light">("gemini-dark");
+
+  const themeStyles = {
+    "gemini-dark": {
+      bgApp: "#090a0d",
+      bgHeader: "#101114",
+      bgPanel: "#131314",
+      bgInner: "#1e1f20",
+      bgEditor: "#0e0e11",
+      bgSubTab: "#18191b",
+      border: "#2d2f31",
+      borderOpacity: "rgba(45, 47, 49, 0.8)",
+      textMain: "#f0f4f9",
+      textMuted: "#8e918f",
+      accent: "#9b72f3",
+      accentRgb: "155, 114, 243",
+      selectionBg: "rgba(155, 114, 243, 0.3)",
+      gradient: "linear-gradient(135deg, #4285f4 0%, #9b72f3 50%, #d9657b 100%)",
+      isDark: true,
+      name: "Gemini Dark"
+    },
+    "gemini-light": {
+      bgApp: "#f4f6fa",
+      bgHeader: "#ffffff",
+      bgPanel: "#ffffff",
+      bgInner: "#e9ecf1",
+      bgEditor: "#f0f2f5",
+      bgSubTab: "#e1e3e8",
+      border: "#dcdfe6",
+      borderOpacity: "rgba(220, 223, 230, 0.8)",
+      textMain: "#1f1f1f",
+      textMuted: "#5f6368",
+      accent: "#6829d6",
+      accentRgb: "104, 41, 214",
+      selectionBg: "rgba(104, 41, 214, 0.2)",
+      gradient: "linear-gradient(135deg, #1a73e8 0%, #6829d6 50%, #da5d72 100%)",
+      isDark: false,
+      name: "Gemini Light"
+    },
+    "groq-dark": {
+      bgApp: "#07080a",
+      bgHeader: "#111318",
+      bgPanel: "#151820",
+      bgInner: "#1d212c",
+      bgEditor: "#0a0b0e",
+      bgSubTab: "#222733",
+      border: "#2a2f3a",
+      borderOpacity: "rgba(42, 47, 58, 0.8)",
+      textMain: "#f3f6fa",
+      textMuted: "#7d8c9e",
+      accent: "#ff6200",
+      accentRgb: "255, 98, 0",
+      selectionBg: "rgba(255, 98, 0, 0.3)",
+      gradient: "linear-gradient(135deg, #ff6200 0%, #ff3700 50%, #ff8800 100%)",
+      isDark: true,
+      name: "Groq Dark"
+    },
+    "groq-light": {
+      bgApp: "#fafafa",
+      bgHeader: "#ffffff",
+      bgPanel: "#ffffff",
+      bgInner: "#edf0f3",
+      bgEditor: "#f5f7f9",
+      bgSubTab: "#dfe3e8",
+      border: "#cbd5e1",
+      borderOpacity: "rgba(203, 213, 225, 0.8)",
+      textMain: "#0a0d14",
+      textMuted: "#5c6b7c",
+      accent: "#e04a00",
+      accentRgb: "224, 74, 0",
+      selectionBg: "rgba(224, 74, 0, 0.2)",
+      gradient: "linear-gradient(135deg, #e04a00 0%, #ff6a13 50%, #c13400 100%)",
+      isDark: false,
+      name: "Groq Light"
+    },
+    "mistral-dark": {
+      bgApp: "#0d0c0e",
+      bgHeader: "#161318",
+      bgPanel: "#1b181f",
+      bgInner: "#24202a",
+      bgEditor: "#0a090b",
+      bgSubTab: "#2e2933",
+      border: "#2c2834",
+      borderOpacity: "rgba(44, 40, 52, 0.8)",
+      textMain: "#faf9fb",
+      textMuted: "#9c97a2",
+      accent: "#f3611b",
+      accentRgb: "243, 97, 27",
+      selectionBg: "rgba(243, 97, 27, 0.3)",
+      gradient: "linear-gradient(135deg, #f3611b 0%, #d34e10 50%, #ff8f4a 100%)",
+      isDark: true,
+      name: "Mistral Dark"
+    },
+    "mistral-light": {
+      bgApp: "#fdfcf7",
+      bgHeader: "#f6f3eb",
+      bgPanel: "#fdfcf9",
+      bgInner: "#ece7dc",
+      bgEditor: "#f4f1e8",
+      bgSubTab: "#e2ded3",
+      border: "#dcd8cb",
+      borderOpacity: "rgba(220, 216, 203, 0.8)",
+      textMain: "#2a1f17",
+      textMuted: "#776f66",
+      accent: "#d85418",
+      accentRgb: "216, 84, 24",
+      selectionBg: "rgba(216, 84, 24, 0.2)",
+      gradient: "linear-gradient(135deg, #d85418 0%, #bd400b 50%, #f0793c 100%)",
+      isDark: false,
+      name: "Mistral Light"
+    },
+    "claude-dark": {
+      bgApp: "#0f0d0c",
+      bgHeader: "#181513",
+      bgPanel: "#1d1a17",
+      bgInner: "#282420",
+      bgEditor: "#0a0908",
+      bgSubTab: "#322d28",
+      border: "#34302b",
+      borderOpacity: "rgba(52, 48, 43, 0.8)",
+      textMain: "#f7f5f2",
+      textMuted: "#a89f96",
+      accent: "#dca671",
+      accentRgb: "220, 166, 113",
+      selectionBg: "rgba(220, 166, 113, 0.3)",
+      gradient: "linear-gradient(135deg, #dca671 0%, #c58f55 50%, #e6be8d 100%)",
+      isDark: true,
+      name: "Claude Dark"
+    },
+    "claude-light": {
+      bgApp: "#faf9f5",
+      bgHeader: "#f5f2e9",
+      bgPanel: "#fcfbf9",
+      bgInner: "#ede8db",
+      bgEditor: "#f7f4ea",
+      bgSubTab: "#dfdacd",
+      border: "#d8d2c4",
+      borderOpacity: "rgba(216, 210, 196, 0.8)",
+      textMain: "#191919",
+      textMuted: "#6e6659",
+      accent: "#cc5a27",
+      accentRgb: "204, 90, 39",
+      selectionBg: "rgba(204, 90, 39, 0.2)",
+      gradient: "linear-gradient(135deg, #cc5a27 0%, #a33d13 50%, #e07a48 100%)",
+      isDark: false,
+      name: "Claude Light"
+    }
+  };
+
+  useEffect(() => {
+    switch (currentTheme) {
+      case "gemini-dark":
+        setHighlightColor("#9b72f3");
+        break;
+      case "gemini-light":
+        setHighlightColor("#6829d6");
+        break;
+      case "groq-dark":
+        setHighlightColor("#ff6200");
+        break;
+      case "groq-light":
+        setHighlightColor("#e04a00");
+        break;
+      case "mistral-dark":
+        setHighlightColor("#f3611b");
+        break;
+      case "mistral-light":
+        setHighlightColor("#d85418");
+        break;
+      case "claude-dark":
+        setHighlightColor("#dca671");
+        break;
+      case "claude-light":
+        setHighlightColor("#cc5a27");
+        break;
+    }
+  }, [currentTheme]);
+
   // Workspace Tabs
   const [activeTab, setActiveTab] = useState<"response" | "code" | "ai" | "influencer" | "settings">("response");
 
@@ -998,8 +1177,105 @@ We built a weighted preference model based on your database structure:
     follow_redirects: followRedirects,
   });
 
+  const currentThemeStyles = themeStyles[currentTheme];
+
   return (
-    <div className="h-screen max-h-screen w-screen bg-[#090a0d] text-[#f0f4f9] flex flex-col font-sans selection:bg-[#9b72f3]/30 selection:text-white overflow-hidden pb-0">
+    <div className={`theme-${currentTheme} h-screen max-h-screen w-screen bg-[#090a0d] text-[#f0f4f9] flex flex-col font-sans selection:bg-[#9b72f3]/30 selection:text-white overflow-hidden pb-0`}>
+      <style>{`
+        :root {
+          --bg-app: ${currentThemeStyles.bgApp};
+          --bg-header: ${currentThemeStyles.bgHeader};
+          --bg-panel: ${currentThemeStyles.bgPanel};
+          --bg-inner: ${currentThemeStyles.bgInner};
+          --bg-editor: ${currentThemeStyles.bgEditor};
+          --bg-sub-tab: ${currentThemeStyles.bgSubTab};
+          --border-color: ${currentThemeStyles.border};
+          --border-opacity: ${currentThemeStyles.borderOpacity};
+          --text-main: ${currentThemeStyles.textMain};
+          --text-muted: ${currentThemeStyles.textMuted};
+          --accent: ${currentThemeStyles.accent};
+          --accent-rgb: ${currentThemeStyles.accentRgb};
+          --selection-bg: ${currentThemeStyles.selectionBg};
+          --gradient: ${currentThemeStyles.gradient};
+        }
+
+        /* Direct Class styling overrides for themes */
+        .bg-\\[\\#090a0d\\] { background-color: var(--bg-app) !important; }
+        .bg-\\[\\#101114\\] { background-color: var(--bg-header) !important; }
+        .bg-\\[\\#131314\\] { background-color: var(--bg-panel) !important; }
+        .bg-\\[\\#1e1f20\\] { background-color: var(--bg-inner) !important; }
+        .bg-\\[\\#0e0e11\\] { background-color: var(--bg-editor) !important; }
+        .bg-\\[\\#18191b\\], .bg-\\[\\#18191a\\], .bg-\\[\\#080809\\], .bg-\\[\\#111112\\] { background-color: var(--bg-sub-tab) !important; }
+        
+        .border-\\[\\#2d2f31\\]\\/80, .border-\\[\\#2d2f31\\]\\/85, .border-\\[\\#2d2f31\\]\\/60 { border-color: var(--border-opacity) !important; }
+        .border-\\[\\#2d2f31\\] { border-color: var(--border-color) !important; }
+
+        .text-\\[\\#f0f4f9\\] { color: var(--text-main) !important; }
+        .text-\\[\\#8e918f\\], .text-slate-400, .text-slate-500, .text-slate-300 { color: var(--text-muted) !important; }
+        
+        .text-\\[\\#9b72f3\\] { color: var(--accent) !important; }
+        .bg-\\[\\#9b72f3\\] { background-color: var(--accent) !important; }
+        .bg-\\[\\#9b72f3\\]\\/10 { background-color: rgba(var(--accent-rgb), 0.1) !important; }
+        .border-\\[\\#9b72f3\\]\\/20 { border-color: rgba(var(--accent-rgb), 0.2) !important; }
+        .border-\\[\\#9b72f3\\]\\/45 { border-color: rgba(var(--accent-rgb), 0.45) !important; }
+
+        /* Selection and headings */
+        ::selection {
+          background-color: var(--selection-bg) !important;
+          color: #ffffff !important;
+        }
+
+        .text-transparent.bg-clip-text.bg-gradient-to-r.from-\\[\\#4285f4\\].via-\\[\\#9b72f3\\] {
+          background-image: var(--gradient) !important;
+          -webkit-background-clip: text !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+        
+        .bg-gradient-to-tr.from-\\[\\#4285f4\\] {
+          background-image: var(--gradient) !important;
+        }
+
+        /* Light / Dark Mode dynamic adaptations */
+        ${!currentThemeStyles.isDark ? `
+          input, select, textarea {
+            background-color: var(--bg-inner) !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--border-color) !important;
+          }
+          input::placeholder {
+            color: var(--text-muted) !important;
+            opacity: 0.7;
+          }
+          /* Override panels slate & list items that are hardcoded darker colors in light mode */
+          .bg-\\[\\#131314\\] {
+            background-color: var(--bg-panel) !important;
+          }
+          .text-slate-200, .text-\\[\\#e3e3e3\\], .text-slate-350 {
+            color: var(--text-main) !important;
+          }
+          .border-slate-800\\/50 {
+            border-color: var(--border-color) !important;
+          }
+          /* Hover elements in lists */
+          .hover\\:bg-\\[\\#1e1f20\\]\\/50:hover {
+            background-color: var(--bg-inner) !important;
+          }
+          /* Custom sub headers & details */
+          .text-slate-500 {
+            color: var(--text-muted) !important;
+          }
+          /* Interactive buttons that should stand out */
+          .bg-amber-500\\/10 {
+            background-color: rgba(var(--accent-rgb), 0.1) !important;
+            color: var(--accent) !important;
+            border-color: rgba(var(--accent-rgb), 0.3) !important;
+          }
+          /* Settings container sub elements */
+          .bg-\\[\\#1e1f20\\] {
+            background-color: var(--bg-inner) !important;
+          }
+        ` : ""}
+      `}</style>
       {/* Visual Header - Compact & Premium - Fixed Height */}
       <header className="bg-[#101114] border-b border-[#2d2f31]/80 py-3 px-6 flex items-center justify-between flex-shrink-0 z-50 shadow-sm leading-none">
         <div className="flex items-center gap-2.5">
@@ -1028,6 +1304,34 @@ We built a weighted preference model based on your database structure:
               <span>Payload: <strong className="text-slate-200">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</strong></span>
             </div>
           )}
+          {/* Quick Switch Theme Select */}
+          <div className="flex items-center gap-1.5 bg-[#1e1f20] border border-[#2d2f31]/80 px-2.5 py-1.5 rounded-full text-[10px] font-mono flex-shrink-0">
+            <span className="text-[#8e918f] uppercase tracking-wider text-[9px] font-bold">Theme:</span>
+            <select
+              value={currentTheme}
+              onChange={(e) => setCurrentTheme(e.target.value as any)}
+              className="bg-transparent border-none text-[#f0f4f9] focus:outline-none cursor-pointer pr-1 uppercase text-[9px] font-bold tracking-wider"
+              style={{ colorScheme: "dark" }}
+            >
+              <optgroup label="Google Gemini" className="text-slate-200 bg-[#131314]">
+                <option value="gemini-dark">Gemini Dark 🤖</option>
+                <option value="gemini-light">Gemini Light 🤖</option>
+              </optgroup>
+              <optgroup label="Groq Speed" className="text-slate-200 bg-[#131314]">
+                <option value="groq-dark">Groq Dark ⚡</option>
+                <option value="groq-light">Groq Light ⚡</option>
+              </optgroup>
+              <optgroup label="Mistral AI" className="text-slate-200 bg-[#131314]">
+                <option value="mistral-dark">Mistral Dark 🌬️</option>
+                <option value="mistral-light">Mistral Light 🌬️</option>
+              </optgroup>
+              <optgroup label="Anthropic Claude" className="text-slate-200 bg-[#131314]">
+                <option value="claude-dark">Claude Dark ✍️</option>
+                <option value="claude-light">Claude Light ✍️</option>
+              </optgroup>
+            </select>
+          </div>
+
           <div className="flex items-center gap-2 bg-[#1e1f20] border border-[#2d2f31]/80 px-3 py-1.5 rounded-full text-[10px] font-mono flex-shrink-0">
             <span className="flex h-1.5 w-1.5 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -2948,7 +3252,143 @@ We built a weighted preference model based on your database structure:
                       </div>
                     </div>
 
-                  {/* Category 3: Live Verification Logs & Real HTTP Diagnostics */}
+                    {/* Category 3: Premium Lab Workspace Themes */}
+                    <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-4 flex flex-col gap-4 shadow-sm hover:border-[#2d2f31]/100 transition-all">
+                      <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2">
+                        <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs font-display">
+                          <Sliders className="w-4 h-4 text-amber-500" /> Premium Lab Workspace Themes
+                        </span>
+                        <span className="text-[10px] bg-amber-950/40 text-amber-400 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                          Adaptive UI
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-3.5 text-xs">
+                        <p className="text-[11px] text-[#8e918f] leading-normal font-sans">
+                          Switch between distinctive high-fidelity color presets crafted to mimic major AI providers' brand languages in both Light & Dark modes:
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Google Gemini */}
+                          <div className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-[#2d2f31] bg-[#131314]/50">
+                            <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400 font-bold">Google Gemini</span>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setCurrentTheme("gemini-dark")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "gemini-dark"
+                                    ? "bg-purple-900/20 text-[#9b72f3] border-[#9b72f3]/45 animate-[pulse_1.5s_infinite]"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Dark
+                              </button>
+                              <button
+                                onClick={() => setCurrentTheme("gemini-light")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "gemini-light"
+                                    ? "bg-purple-500/10 text-purple-700 border-purple-300"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Light
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Groq Speed */}
+                          <div className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-[#2d2f31] bg-[#131314]/50">
+                            <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400 font-bold">Groq Speed</span>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setCurrentTheme("groq-dark")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "groq-dark"
+                                    ? "bg-orange-950/20 text-orange-400 border-orange-500/40"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Dark
+                              </button>
+                              <button
+                                onClick={() => setCurrentTheme("groq-light")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "groq-light"
+                                    ? "bg-orange-500/10 text-orange-600 border-orange-300"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Light
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Mistral AI */}
+                          <div className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-[#2d2f31] bg-[#131314]/50">
+                            <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400 font-bold">Mistral AI</span>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setCurrentTheme("mistral-dark")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "mistral-dark"
+                                    ? "bg-amber-950/20 text-amber-500 border-[#f3611b]/40"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Dark
+                              </button>
+                              <button
+                                onClick={() => setCurrentTheme("mistral-light")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "mistral-light"
+                                    ? "bg-[#d85418]/10 text-[#d85418] border-[#d85418]/30"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Light
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Anthropic Claude */}
+                          <div className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-[#2d2f31] bg-[#131314]/50">
+                            <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400 font-bold">Anthropic Claude</span>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setCurrentTheme("claude-dark")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "claude-dark"
+                                    ? "bg-yellow-950/20 text-amber-300 border-amber-500/30"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Dark
+                              </button>
+                              <button
+                                onClick={() => setCurrentTheme("claude-light")}
+                                className={`flex-1 py-1 px-2 rounded-lg text-[9px] font-bold cursor-pointer transition-all border ${
+                                  currentTheme === "claude-light"
+                                    ? "bg-[#cc5a27]/10 text-[#cc5a27] border-[#cc5a27]/30"
+                                    : "bg-transparent text-slate-400 border-transparent hover:bg-[#1e1f20]"
+                                }`}
+                              >
+                                Light
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Active Theme Badge Banner info */}
+                        <div className="bg-[#131314] p-3 rounded-xl border border-[#2d2f31]/60 flex items-center justify-between text-[11px]">
+                          <span className="text-[#8e918f] font-sans">Active presets bundle:</span>
+                          <span className="font-bold font-mono flex items-center gap-1" style={{ color: currentThemeStyles.accent }}>
+                            <span>✨</span> {currentThemeStyles.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                  {/* Category 4: Live Verification Logs & Real HTTP Diagnostics */}
                   <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-5 flex flex-col gap-4 shadow-sm md:col-span-2">
                     <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2.5">
                       <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs">
