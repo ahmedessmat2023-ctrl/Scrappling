@@ -175,31 +175,58 @@ print(fetcher.text)
 `;
 };
 
+// Helper to convert hex to rgba
+const hexToRgba = (hex: string, alpha: number) => {
+  let cleanHex = hex.replace("#", "");
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex.split("").map(c => c + c).join("");
+  }
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hex;
+};
+
 // Dynamic source document modifier for DOM Visualizer iframe
-export const getVisualizerSrcDoc = (rawHtml: string, baseUrl: string, selector: string) => {
+export const getVisualizerSrcDoc = (
+  rawHtml: string,
+  baseUrl: string,
+  selector: string,
+  enableHighlight: boolean = true,
+  borderColor: string = "#9b72f3",
+  borderWidth: number = 3
+) => {
   if (!rawHtml) return "";
 
   // Base URL tag to safely load relative assets/stylesheets/images from original server
   const baseTag = baseUrl ? `<base href="${baseUrl}">` : "";
 
+  const rgbaBackground = hexToRgba(borderColor, 0.15);
+  const rgbaShadow = hexToRgba(borderColor, 0.4);
+  const hoverRgbaBackground = hexToRgba(borderColor, 0.25);
+  const hoverRgbaShadow = hexToRgba(borderColor, 0.55);
+
   // High quality hover and highlight outline CSS definition
-  const highlightStyles = selector.trim() ? `
+  const highlightStyles = (enableHighlight && selector.trim()) ? `
     <style id="scrapling-highlighter">
       /* High-contrast animated highlight on matched nodes */
       ${selector.trim()} {
-        outline: 3px solid #9b72f3 !important;
+        outline: ${borderWidth}px solid ${borderColor} !important;
         outline-offset: 1px !important;
-        background-color: rgba(155, 114, 243, 0.15) !important;
-        box-shadow: 0 0 12px rgba(155, 114, 243, 0.4) !important;
+        background-color: ${rgbaBackground} !important;
+        box-shadow: 0 0 12px ${rgbaShadow} !important;
         position: relative !important;
         transition: outline 0.15s ease-in-out, background-color 0.15s ease-in-out !important;
         z-index: 10 !important;
       }
-      /* Hover transition to green for focused visual check */
+      /* Hover transition to brighter for focused visual check */
       ${selector.trim()}:hover {
-        outline: 3px solid #10b981 !important;
-        background-color: rgba(16, 185, 129, 0.22) !important;
-        box-shadow: 0 0 14px rgba(16, 185, 129, 0.45) !important;
+        outline: ${borderWidth + 1}px solid ${borderColor} !important;
+        background-color: ${hoverRgbaBackground} !important;
+        box-shadow: 0 0 14px ${hoverRgbaShadow} !important;
       }
     </style>
   ` : "";

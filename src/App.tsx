@@ -82,6 +82,9 @@ export default function App() {
 
   // Selector Sandbox testing state
   const [testQuery, setTestQuery] = useState("");
+  const [enableHighlight, setEnableHighlight] = useState<boolean>(true);
+  const [highlightColor, setHighlightColor] = useState<string>("#9b72f3");
+  const [highlightWidth, setHighlightWidth] = useState<number>(3);
   const [testMatches, setTestMatches] = useState<{ html: string; text: string }[]>([]);
   const [scrapedSearchQuery, setScrapedSearchQuery] = useState("");
   const [scrapedViewMode, setScrapedViewMode] = useState<"raw" | "list" | "card" | "visualizer">("list");
@@ -1365,6 +1368,73 @@ We built a weighted preference model based on your database structure:
               </div>
             )}
           </div>
+
+          {/* DOM Visualizer Highlights Customizer */}
+          {activeTab === "response" && (
+            <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4 animate-[fadeIn_0.15s_ease-out]">
+              <div className="flex items-center justify-between border-b border-[#2d2f31]/50 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#9b72f3]" />
+                  <h3 className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display">
+                    Highlight Visuals
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 text-xs">
+                {/* Base Color Picker */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-350 font-medium">Border Outline Color</span>
+                    <span className="font-mono text-[10px] text-slate-500 uppercase">{highlightColor}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={highlightColor}
+                      onChange={(e) => setHighlightColor(e.target.value)}
+                      className="bg-[#1e1f20] h-8 w-12 rounded-lg cursor-pointer border border-[#2d2f31] p-0.5 overflow-hidden filter hover:brightness-110 transition-all"
+                    />
+                    <div className="flex-1 flex gap-1.5 flex-wrap">
+                      {["#9b72f3", "#34a853", "#4285f4", "#ea4335", "#fabc05", "#e67e22"].map((presetColor) => (
+                        <button
+                          key={presetColor}
+                          onClick={() => setHighlightColor(presetColor)}
+                          style={{ backgroundColor: presetColor }}
+                          className={`w-4.5 h-4.5 rounded-full border cursor-pointer hover:scale-110 transition-transform ${
+                            highlightColor.toLowerCase() === presetColor.toLowerCase()
+                              ? "border-white ring-1 ring-[#9b72f3]"
+                              : "border-transparent"
+                          }`}
+                          title={presetColor}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Border Width Slider */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-350 font-medium">Border Outline Width</span>
+                    <span className="font-mono text-xs text-[#9b72f3] font-bold">{highlightWidth}px</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value={highlightWidth}
+                      onChange={(e) => setHighlightWidth(Number(e.target.value))}
+                      className="flex-1 h-1 bg-[#1e1f20] rounded-lg appearance-none cursor-pointer accent-[#9b72f3]"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">10px max</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
         )}
 
@@ -1485,27 +1555,50 @@ We built a weighted preference model based on your database structure:
                         </div>
                       </div>
                     )}
-                    {/* CSS Live Query console input */}
-                    <div className="bg-[#131314] border border-[#2d2f31]/80 p-3.5 rounded-2xl flex items-center gap-3 shadow-inner">
-                      <Search className="w-4 h-4 text-[#4285f4] flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">
-                          Interact on the Fly: Live CSS Selector Sandbox
+                     {/* CSS Live Query console input */}
+                    <div className="bg-[#131314] border border-[#2d2f31]/80 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3 shadow-inner">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Search className="w-4 h-4 text-[#4285f4] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">
+                            Interact on the Fly: Live CSS Selector Sandbox
+                          </div>
+                          <input
+                            id="test-selector-input"
+                            type="text"
+                            value={testQuery}
+                            onChange={(e) => setTestQuery(e.target.value)}
+                            placeholder="Type CSS selector (e.g. .storylink or h2) to inspect extracted elements immediately..."
+                            className="w-full bg-transparent text-[#f0f4f9] font-mono text-xs focus:outline-none border-b border-transparent focus:border-[#9b72f3]/20 pb-0.5"
+                          />
                         </div>
-                        <input
-                          id="test-selector-input"
-                          type="text"
-                          value={testQuery}
-                          onChange={(e) => setTestQuery(e.target.value)}
-                          placeholder="Type CSS selector (e.g. .storylink or h2) to inspect extracted elements immediately..."
-                          className="w-full bg-transparent text-[#f0f4f9] font-mono text-xs focus:outline-none border-b border-transparent focus:border-[#9b72f3]/20 pb-0.5"
-                        />
                       </div>
-                      {testQuery && (
-                        <div className="flex-shrink-0 bg-[#1e1f20] border border-[#2d2f31] text-[10px] px-2 py-1 rounded font-mono text-[#9b72f3]">
-                          {testMatches.length} Matches
+                      <div className="flex items-center gap-3 flex-shrink-0 justify-between sm:justify-start">
+                        {/* Target Highlighting Toggle */}
+                        <div className="flex items-center gap-2 bg-[#1e1f20] px-2.5 py-1 rounded-xl border border-[#2d2f31]/80 shadow-sm">
+                          <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">Highlight DOM Match</span>
+                          <button
+                            id="highlight-toggle"
+                            onClick={() => setEnableHighlight(!enableHighlight)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              enableHighlight ? "bg-[#9b72f3]" : "bg-zinc-800"
+                            }`}
+                            role="switch"
+                            aria-checked={enableHighlight}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                enableHighlight ? "translate-x-4" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
                         </div>
-                      )}
+                        {testQuery && (
+                          <div className="bg-[#1e1f20] border border-[#2d2f31]/90 text-[10px] px-2.5 py-1.5 rounded-lg font-mono text-[#9b72f3] whitespace-nowrap">
+                            {testMatches.length} Matches
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Integrated Search & Dashboard Filters */}
@@ -1799,7 +1892,7 @@ We built a weighted preference model based on your database structure:
                                       {response?.rawHtml ? (
                                         <iframe
                                           id="dom-visualizer-iframe"
-                                          srcDoc={getVisualizerSrcDoc(response.rawHtml, response.url, testQuery)}
+                                          srcDoc={getVisualizerSrcDoc(response.rawHtml, response.url, testQuery, enableHighlight, highlightColor, highlightWidth)}
                                           sandbox="allow-same-origin"
                                           referrerPolicy="no-referrer"
                                           className="w-full h-full border-0 select-text bg-white"
