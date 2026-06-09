@@ -1,0 +1,6 @@
+{
+  "name": "Web Scraper Lab",
+  "description": "Interactive developer playground and code generator for the Scrapling web scraping library, featuring live HTTP scraping simulator, real-time CSS selector testing, and Gemini-powered smart extraction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
