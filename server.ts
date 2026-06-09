@@ -238,6 +238,236 @@ function convertHtmlToText(html: string): string {
     .replace(/\s+/g, " ");
 }
 
+// Clean triple backtick markdown wrappers for secure JSON extraction
+function cleanJsonOutput(text: string): string {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.replace(/^```json/, "");
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```/, "");
+  }
+  if (cleaned.endsWith("```")) {
+    cleaned = cleaned.replace(/```$/, "");
+  }
+  return cleaned.trim();
+}
+
+// Universal AI Core Multiplexer supporting Google Gemini, OpenAI, Claude, DeepSeek, Groq and OpenRouter
+// Universal AI Core Multiplexer supporting Google Gemini, Anthropic, OpenAI, DeepSeek, Groq, OpenRouter, Mistral, Ollama, Firecrawl, and more!
+async function executeAIPipe({
+  provider,
+  model,
+  temperature,
+  systemInstruction,
+  messages,
+  customApiKey,
+  jsonMode,
+  jsonSchema,
+  agentRouterBaseUrl,
+}: {
+  provider: string;
+  model: string;
+  temperature?: number;
+  systemInstruction?: string;
+  messages: { role: string; content: string }[];
+  customApiKey?: string;
+  jsonMode?: boolean;
+  jsonSchema?: any;
+  agentRouterBaseUrl?: string;
+}): Promise<string> {
+  const normProvider = (provider || "google").toLowerCase();
+  const normModel = model || "gemini-3.5-flash";
+
+  if (normProvider === "google") {
+    const apiKey = customApiKey || process.env.GEMINI_API_KEY || "";
+    if (!apiKey) {
+      throw new Error("Google Gemini API Key is missing. Please enter your API key in the Settings/Secrets panel.");
+    }
+    const localAi = new GoogleGenAI({ apiKey });
+    
+    const contents = messages.map(m => ({
+      role: m.role === "assistant" || m.role === "model" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
+
+    const config: any = {
+      temperature: temperature,
+    };
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
+    }
+    if (jsonMode) {
+      config.responseMimeType = "application/json";
+      if (jsonSchema) {
+        config.responseSchema = jsonSchema;
+      }
+    }
+
+    const response = await localAi.models.generateContent({
+      model: normModel,
+      contents,
+      config,
+    });
+
+    return response.text || "";
+  }
+
+  // Anthropic Claude Integration (uses custom format)
+  if (normProvider === "anthropic") {
+    const apiKey = customApiKey || process.env.ANTHROPIC_API_KEY || "";
+    if (!apiKey) {
+      throw new Error("Anthropic Claude API Key is missing. Please supply a custom API key under Settings or set ANTHROPIC_API_KEY.");
+    }
+
+    const formattedMessages = messages.map(m => {
+      const r = m.role === "model" ? "assistant" : m.role;
+      return { role: r === "system" ? "user" : r, content: m.content };
+    });
+
+    const body: any = {
+      model: normModel,
+      messages: formattedMessages,
+      max_tokens: 4096,
+      temperature: temperature !== undefined ? Math.min(temperature, 1.0) : undefined,
+    };
+
+    if (systemInstruction) {
+      body.system = systemInstruction;
+    }
+
+    if (jsonMode) {
+      if (body.system) {
+        body.system += "\n\nCRITICAL: You must return valid, parseable JSON code. Do not wrap output in markdown codeblocks. Your complete output must be the raw JSON text.";
+      } else {
+        body.system = "CRITICAL: You must return valid, parseable JSON code. Do not wrap output in markdown codeblocks. Your complete output must be the raw JSON text.";
+      }
+    }
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorJson;
+      try { errorJson = JSON.parse(errorText); } catch { }
+      const errMsg = errorJson?.error?.message || errorText || `HTTP ${res.status}`;
+      throw new Error(`Anthropic API error: ${errMsg}`);
+    }
+
+    const resJson = await res.json() as any;
+    return resJson?.content?.[0]?.text || "";
+  }
+
+  // Setup standard OpenAI-compatible proxies / configurations
+  const openAiCompatibleProviders: Record<string, { endpoint: string; envKeyName: string }> = {
+    openai: { endpoint: "https://api.openai.com/v1/chat/completions", envKeyName: "OPENAI_API_KEY" },
+    deepseek: { endpoint: "https://api.deepseek.com/v1/chat/completions", envKeyName: "DEEPSEEK_API_KEY" },
+    groq: { endpoint: "https://api.groq.com/openai/v1/chat/completions", envKeyName: "GROQ_API_KEY" },
+    openrouter: { endpoint: "https://openrouter.ai/api/v1/chat/completions", envKeyName: "OPENROUTER_API_KEY" },
+    opencode: { endpoint: "https://api.opencode.ai/v1/chat/completions", envKeyName: "OPENCODE_API_KEY" },
+    browseruse: { endpoint: "https://api.browseruse.com/v1/chat/completions", envKeyName: "BROWSER_USE_API_KEY" },
+    ollama: { endpoint: "http://localhost:11434/v1/chat/completions", envKeyName: "OLLAMA_API_KEY" },
+    exa: { endpoint: "https://api.exa.ai/chat/completions", envKeyName: "EXA_API_KEY" },
+    querit: { endpoint: "https://api.querit.ai/v1/chat/completions", envKeyName: "QUERIT_API_KEY" },
+    tavily: { endpoint: "https://api.tavily.com/chat/completions", envKeyName: "TAVILY_API_KEY" },
+    mistral: { endpoint: "https://api.mistral.ai/v1/chat/completions", envKeyName: "MISTRAL_API_KEY" },
+    modelscope: { endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", envKeyName: "MODELSCOPE_API_KEY" },
+    firecrawl: { endpoint: "https://api.firecrawl.dev/v1/chat/completions", envKeyName: "FIRECRAWL_API_KEY" },
+    "21st": { endpoint: "https://api.21st.dev/v1/chat/completions", envKeyName: "API_KEY_21ST" },
+  };
+
+  if (normProvider === "agentrouter" || openAiCompatibleProviders[normProvider]) {
+    let endpoint = "";
+    let envKeyName = "";
+
+    if (normProvider === "agentrouter") {
+      let baseUrl = agentRouterBaseUrl || process.env.AGENT_ROUTER_BASE_URL || "https://agentrouter.org/v1";
+      if (baseUrl.endsWith("/")) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+      endpoint = `${baseUrl}/chat/completions`;
+      envKeyName = "OPENROUTER_API_KEY"; // Default key fallback or custom
+    } else {
+      const config = openAiCompatibleProviders[normProvider];
+      endpoint = config.endpoint;
+      envKeyName = config.envKeyName;
+    }
+
+    // Attempt to load API Key from custom override, target env key, or fallback 21st naming key
+    let apiKey = customApiKey || process.env[envKeyName] || "";
+    if (!apiKey && envKeyName === "API_KEY_21ST") {
+      apiKey = process.env["21ST_API_KEY"] || "";
+    }
+
+    // For Ollama or custom local AgentRouter proxies, API Key can be empty. For others, demand it if not set.
+    if (!apiKey && normProvider !== "ollama" && normProvider !== "agentrouter") {
+      throw new Error(`${provider.toUpperCase()} API Key (${envKeyName}) is missing. Please supply a custom API key under Settings/Secrets or configure it in your workspace environment.`);
+    }
+
+    const formattedMessages: any[] = [];
+    if (systemInstruction) {
+      formattedMessages.push({ role: "system", content: systemInstruction });
+    }
+    messages.forEach(m => {
+      const r = m.role === "model" ? "assistant" : m.role;
+      formattedMessages.push({ role: r, content: m.content });
+    });
+
+    const body: any = {
+      model: normModel,
+      messages: formattedMessages,
+      temperature: normModel === "deepseek-reasoner" ? undefined : temperature,
+    };
+
+    if (jsonMode && normModel !== "deepseek-reasoner") {
+      body.response_format = { type: "json_object" };
+      formattedMessages.push({
+        role: "system",
+        content: "CRITICAL: You must return valid, parseable JSON code. Do not wrap output in markdown codeblocks (e.g. ```json). Your complete output must be the raw JSON text."
+      });
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    // Append standard metadata for OpenRouter/AgentRouter
+    if (normProvider === "openrouter" || normProvider === "agentrouter") {
+      headers["HTTP-Referer"] = "https://ai.studio";
+      headers["X-Title"] = "Web Scraper Lab Multiplexer";
+    }
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorJson;
+      try { errorJson = JSON.parse(errorText); } catch { }
+      const errMsg = errorJson?.error?.message || errorText || `HTTP ${res.status}`;
+      throw new Error(`${provider.toUpperCase()} API error: ${errMsg}`);
+    }
+
+    const resJson = await res.json() as any;
+    return resJson?.choices?.[0]?.message?.content || "";
+  }
+
+  throw new Error(`Unsupported AI Model Provider: ${provider}`);
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -458,27 +688,29 @@ async function startServer() {
     }
   });
 
-  // AI CSS Selector Suggester Endpoint using Gemini
+  // AI CSS Selector Suggester Endpoint using Gemini or other custom LLM providers
   app.post("/api/ai-suggest", async (req, res) => {
-    if (!ai) {
-      return res.status(503).json({
-        error: "Gemini API is not configured on the server. Please add your GEMINI_API_KEY in the Secrets panel.",
-      });
-    }
-
     const { htmlSnippet, userObjective, aiSettings } = req.body;
     if (!htmlSnippet) {
       return res.status(400).json({ error: "HTML snippet or page model is required." });
     }
 
     try {
+      const providerToUse = aiSettings?.provider || "google";
       const modelToUse = aiSettings?.model || "gemini-3.5-flash";
       const temperatureToUse = aiSettings?.temperature !== undefined ? parseFloat(aiSettings.temperature) : undefined;
       const systemInstruction = aiSettings?.systemInstruction || undefined;
+      const customApiKey = aiSettings?.customApiKey || undefined;
+      const agentRouterBaseUrl = aiSettings?.agentRouterBaseUrl || undefined;
 
-      const response = await ai.models.generateContent({
+      const responseText = await executeAIPipe({
+        provider: providerToUse,
         model: modelToUse,
-        contents: `You are an expert web scraping and parser programmer. Your job is to analyze the provided HTML snippet and recommend the optimal CSS selectors for Scrapling to extract the elements the user is looking for.
+        temperature: temperatureToUse,
+        systemInstruction: systemInstruction,
+        messages: [{
+          role: "user",
+          content: `You are an expert web scraping and parser programmer. Your job is to analyze the provided HTML snippet and recommend the optimal CSS selectors for Scrapling to extract the elements the user is looking for.
         
 User Goal: "${userObjective || "extract the main structured elements"}"
 
@@ -487,49 +719,60 @@ HTML Snippet:
 ${htmlSnippet.substring(0, 15000)}
 """
 
-Please provide a highly structured JSON response outlining the recommended CSS Selectors. 
+Please provide a highly structured JSON response outlining the recommended CSS Selectors.
 
-You MUST respond strictly in JSON using the requested schema.`,
-        config: {
-          temperature: temperatureToUse,
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              recommendations: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    fieldName: { type: Type.STRING, description: "Name of the logical field (e.g. titles, prices, ratings)" },
-                    cssSelector: { type: Type.STRING, description: "The optimal, robust CSS selector string to extract these elements" },
-                    explanation: { type: Type.STRING, description: "Short explanation of why this selector matches or why it's robust (e.g. targets item class within grid)" },
-                    sampleExtractedText: { type: Type.STRING, description: "A simulated text extract that this selector would retrieve based on the HTML" },
-                  },
-                  required: ["fieldName", "cssSelector", "explanation"],
+You MUST respond strictly in valid JSON using the requested schema below:
+{
+  "recommendations": [
+    {
+      "fieldName": "Name of the logical field (e.g. titles, prices, ratings)",
+      "cssSelector": "The optimal, robust CSS selector string to extract these elements",
+      "explanation": "Short explanation of why this selector matches or why it's robust",
+      "sampleExtractedText": "A simulated text extract that this selector would retrieve based on the HTML"
+    }
+  ],
+  "overallPythonScript": "A complete, beautiful production-ready Python script using the Scrapling Fetcher library to scrape this URL and build the dictionary.",
+  "scraplingTips": "Stealth security configurations or custom Scrapling bypass tip for this specific type of HTML target."
+}`
+        }],
+        customApiKey,
+        jsonMode: true,
+        agentRouterBaseUrl,
+        jsonSchema: {
+          type: Type.OBJECT,
+          properties: {
+            recommendations: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  fieldName: { type: Type.STRING, description: "Name of the logical field (e.g. titles, prices, ratings)" },
+                  cssSelector: { type: Type.STRING, description: "The optimal, robust CSS selector string to extract these elements" },
+                  explanation: { type: Type.STRING, description: "Short explanation of why this selector matches or why it's robust" },
+                  sampleExtractedText: { type: Type.STRING, description: "A simulated text extract that this selector would retrieve based on the HTML" },
                 },
-              },
-              overallPythonScript: {
-                type: Type.STRING,
-                description: "A complete, beautiful production-ready Python script using the Scrapling Fetcher library to scrape this URL and build the dictionary.",
-              },
-              scraplingTips: {
-                type: Type.STRING,
-                description: "Stealth security configurations or custom Scrapling bypass tip for this specific type of HTML target.",
+                required: ["fieldName", "cssSelector", "explanation"],
               },
             },
-            required: ["recommendations", "overallPythonScript", "scraplingTips"],
+            overallPythonScript: {
+              type: Type.STRING,
+              description: "A complete, beautiful production-ready Python script using the Scrapling Fetcher library to scrape this URL and build the dictionary.",
+            },
+            scraplingTips: {
+              type: Type.STRING,
+              description: "Stealth security configurations or custom Scrapling bypass tip for this specific type of HTML target.",
+            },
           },
+          required: ["recommendations", "overallPythonScript", "scraplingTips"],
         },
       });
 
-      const responseText = response.text;
       if (!responseText) {
-        throw new Error("Empty response received from Gemini.");
+        throw new Error("Empty response received from the AI model.");
       }
 
-      const resultJson = JSON.parse(responseText.trim());
+      const cleanedText = cleanJsonOutput(responseText);
+      const resultJson = JSON.parse(cleanedText);
       res.json(resultJson);
     } catch (error: any) {
       console.error("AI Selector suggestion failed:", error);
@@ -537,26 +780,21 @@ You MUST respond strictly in JSON using the requested schema.`,
     }
   });
 
-  // AI Ask/Discuss Web Structure endpoint using server-side Gemini chat
+  // AI Ask/Discuss Web Structure endpoint using server-side universal AI router
   app.post("/api/ai-chat", async (req, res) => {
-    if (!ai) {
-      return res.status(503).json({
-        error: "Gemini API is not configured on the server. Please add your GEMINI_API_KEY in the Secrets panel.",
-      });
-    }
-
     const { messages, documentContext, aiSettings } = req.body;
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Chat messages are required." });
     }
 
     try {
+      const providerToUse = aiSettings?.provider || "google";
       const modelToUse = aiSettings?.model || "gemini-3.5-flash";
       const temperatureToUse = aiSettings?.temperature !== undefined ? parseFloat(aiSettings.temperature) : undefined;
       const systemInstruction = aiSettings?.systemInstruction || undefined;
+      const customApiKey = aiSettings?.customApiKey || undefined;
+      const agentRouterBaseUrl = aiSettings?.agentRouterBaseUrl || undefined;
 
-      // We will initialize a standard chat or use generateContent with the full conversation
-      // We'll pass the context of the scraped page at the start of the prompt
       const contextPrompt = `You are Scrapling AI Assistant, a specialized coding partner for web scraping, automation, and crawling.
       The user is currently analyzing a webpage in the "Web Scraper Lab".
       
@@ -567,25 +805,26 @@ You MUST respond strictly in JSON using the requested schema.`,
       
       Answer any questions regarding selectors, parsing, python/js scraping scripts, or structuring this unstructured content. Keep explanations clear, professional, and practical. Ensure any python code specifically uses the Scrapling library.`;
 
-      const contents = [
-        { role: "user", parts: [{ text: contextPrompt }] },
+      const formattedMessages = [
+        { role: "user", content: contextPrompt },
         ...messages.map((m: any) => ({
-          role: m.role || "user",
-          parts: [{ text: m.text || m.content }],
+          role: m.role === "assistant" || m.role === "model" ? "model" : "user",
+          content: m.text || m.content,
         })),
       ];
 
-      const response = await ai.models.generateContent({
+      const responseText = await executeAIPipe({
+        provider: providerToUse,
         model: modelToUse,
-        contents: contents,
-        config: {
-          temperature: temperatureToUse,
-          systemInstruction: systemInstruction,
-        }
+        temperature: temperatureToUse,
+        systemInstruction: systemInstruction,
+        messages: formattedMessages,
+        customApiKey,
+        agentRouterBaseUrl,
       });
 
       res.json({
-        text: response.text,
+        text: responseText,
       });
     } catch (error: any) {
       console.error("AI Chat failed:", error);
@@ -593,35 +832,33 @@ You MUST respond strictly in JSON using the requested schema.`,
     }
   });
 
-  // AI Influencer Intelligence Analyst Endpoint
+  // AI Influencer Intelligence Analyst Endpoint using universal AI router
   app.post("/api/influencer-analyze", async (req, res) => {
-    if (!ai) {
-      return res.status(503).json({
-        error: "Gemini API is not configured on the server. Please add your GEMINI_API_KEY in the Secrets panel.",
-      });
-    }
-
     const { compiledPrompt, aiSettings } = req.body;
     if (!compiledPrompt) {
       return res.status(400).json({ error: "The compiled prompt content is required." });
     }
 
     try {
+      const providerToUse = aiSettings?.provider || "google";
       const modelToUse = aiSettings?.model || "gemini-3.5-flash";
       const temperatureToUse = aiSettings?.temperature !== undefined ? parseFloat(aiSettings.temperature) : undefined;
       const systemInstruction = aiSettings?.systemInstruction || undefined;
+      const customApiKey = aiSettings?.customApiKey || undefined;
+      const agentRouterBaseUrl = aiSettings?.agentRouterBaseUrl || undefined;
 
-      const response = await ai.models.generateContent({
+      const responseText = await executeAIPipe({
+        provider: providerToUse,
         model: modelToUse,
-        contents: compiledPrompt,
-        config: {
-          temperature: temperatureToUse,
-          systemInstruction: systemInstruction,
-        }
+        temperature: temperatureToUse,
+        systemInstruction: systemInstruction,
+        messages: [{ role: "user", content: compiledPrompt }],
+        customApiKey,
+        agentRouterBaseUrl,
       });
 
       res.json({
-        text: response.text,
+        text: responseText,
       });
     } catch (error: any) {
       console.error("AI Influencer Analysis failed:", error);

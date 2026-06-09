@@ -46,6 +46,94 @@ import {
   PresetTemplate 
 } from "./types";
 
+// Supported Multi-Provider LLM Models list for the Scrapling AI Assistant
+const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
+  google: [
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash (Default - Rapid & Modular)" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanced Reasoning)" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Precision Parsing)" },
+    { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro (Legacy Deep Context)" },
+    { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Legacy Speed)" },
+  ],
+  openai: [
+    { id: "gpt-4o", label: "GPT-4o (High-Intelligence Flagship)" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini (Cost-efficient Speed)" },
+    { id: "o1-mini", label: "o1-mini (Reasoning Specialist)" },
+    { id: "o3-mini", label: "o3-mini (Advanced Analysis)" },
+    { id: "gpt-4-turbo", label: "GPT-4 Turbo (Legacy Developer Classic)" },
+  ],
+  anthropic: [
+    { id: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (State-of-the-Art Structured)" },
+    { id: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (Lightning Fast Reasoning)" },
+    { id: "claude-3-opus-latest", label: "Claude 3 Opus (Extreme Narrative Accuracy)" },
+  ],
+  deepseek: [
+    { id: "deepseek-chat", label: "DeepSeek V3 (Chat & Parsing)" },
+    { id: "deepseek-reasoner", label: "DeepSeek R1 (Reinforced Reasoning)" },
+  ],
+  groq: [
+    { id: "llama-3.3-70b-versatile", label: "LLaMA 3.3 70B (High Versatility)" },
+    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B (High-throughput MoE)" },
+    { id: "gemma2-9b-it", label: "Gemma 1 9B (Ultra-fast Instruction)" },
+  ],
+  openrouter: [
+    { id: "meta-llama/llama-3.3-70b-instruct", label: "LLaMA 3.3 70B Instruct (via OpenRouter)" },
+    { id: "deepseek/deepseek-r1", label: "DeepSeek R1 Raw (via OpenRouter)" },
+    { id: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet (via OpenRouter)" },
+    { id: "mistralai/mistral-large", label: "Mistral Large 2 (via OpenRouter)" },
+  ],
+  opencode: [
+    { id: "opencode-qwen-2.5-coder-32b", label: "OpenCode Qwen 2.5 Coder 32B" },
+    { id: "opencode-llama-3-8b", label: "OpenCode LLaMA 3 8B" },
+  ],
+  browseruse: [
+    { id: "browser-use-gpt-4o", label: "Browser Use Agent (GPT-4o Backend)" },
+    { id: "browser-use-claude-3-5", label: "Browser Use Agent (Claude 3.5 Backend)" },
+  ],
+  agentrouter: [
+    { id: "agent-router-default", label: "Agent Router (Default Engine)" },
+    { id: "agent-llama-3.3-70b", label: "Agent Router (LLaMA 3.3 70B)" },
+  ],
+  ollama: [
+    { id: "llama3.3:latest", label: "Ollama (LLaMA 3.3)" },
+    { id: "mistral:latest", label: "Ollama (Mistral)" },
+    { id: "qwen2.5-coder:latest", label: "Ollama (Qwen 2.5 Coder)" },
+    { id: "phi3:latest", label: "Ollama (Phi 3)" },
+  ],
+  exa: [
+    { id: "exa-search-neural", label: "Exa Neural Search Grounding" },
+    { id: "exa-find-similar", label: "Exa Similar Document Extractor" },
+  ],
+  querit: [
+    { id: "querit-parser-v2", label: "Querit Parser V2 Structure" },
+    { id: "querit-extract-pro", label: "Querit Extract Pro Engine" },
+  ],
+  tavily: [
+    { id: "tavily-search-extract", label: "Tavily Web Search & Extraction" },
+    { id: "tavily-get-search-context", label: "Tavily Scraped Web context" },
+  ],
+  mistral: [
+    { id: "mistral-large-latest", label: "Mistral Large (Latest Flagship)" },
+    { id: "pixtral-large-latest", label: "Pixtral Large (Latest Multimodal)" },
+    { id: "codestral-latest", label: "Codestral (Scraping/Coding Specialist)" },
+    { id: "open-mistral-nemo", label: "Mistral Nemo (Light & Fast)" },
+  ],
+  modelscope: [
+    { id: "qwen-max", label: "ModelScope DashScope Qwen Max" },
+    { id: "qwen-plus", label: "ModelScope DashScope Qwen Plus" },
+    { id: "qwen-turbo", label: "ModelScope DashScope Qwen Turbo" },
+  ],
+  firecrawl: [
+    { id: "firecrawl-scrape", label: "Firecrawl Scrape API" },
+    { id: "firecrawl-crawl", label: "Firecrawl Crawl API" },
+    { id: "firecrawl-map", label: "Firecrawl Sitemap Locator" },
+  ],
+  "21st": [
+    { id: "21st-coder-v1", label: "21st.dev Coder V1" },
+    { id: "21st-extractor", label: "21st.dev Intelligent Extractor" },
+  ],
+};
+
 // Dynamic Python Script Builder
 const generatePythonScript = (config: {
   url: string;
@@ -247,12 +335,29 @@ export default function App() {
   const [isHeadersCookiesCollapsed, setIsHeadersCookiesCollapsed] = useState(true);
 
   // Premium Custom Settings States
+  const [selectedAiProvider, setSelectedAiProvider] = useState<string>("google");
   const [selectedAiModel, setSelectedAiModel] = useState<string>("gemini-3.5-flash");
   const [aiTemperature, setAiTemperature] = useState<number>(0.7);
   const [aiSystemInstruction, setAiSystemInstruction] = useState<string>(
     "You are Scrapling AI Assistant, a specialized coding partner for web scraping, automation, and crawling."
   );
-  const [customApiKey, setCustomApiKey] = useState<string>("");
+  const [customGoogleKey, setCustomGoogleKey] = useState<string>("");
+  const [customOpenaiKey, setCustomOpenaiKey] = useState<string>("");
+  const [customAnthropicKey, setCustomAnthropicKey] = useState<string>("");
+  const [customDeepseekKey, setCustomDeepseekKey] = useState<string>("");
+  const [customGroqKey, setCustomGroqKey] = useState<string>("");
+  const [customOpenrouterKey, setCustomOpenrouterKey] = useState<string>("");
+  const [customOpencodeKey, setCustomOpencodeKey] = useState<string>("");
+  const [customBrowserUseKey, setCustomBrowserUseKey] = useState<string>("");
+  const [customAgentRouterBaseUrl, setCustomAgentRouterBaseUrl] = useState<string>("https://agentrouter.org/v1");
+  const [customOllamaKey, setCustomOllamaKey] = useState<string>("");
+  const [customExaKey, setCustomExaKey] = useState<string>("");
+  const [customQueritKey, setCustomQueritKey] = useState<string>("");
+  const [customTavilyKey, setCustomTavilyKey] = useState<string>("");
+  const [customMistralKey, setCustomMistralKey] = useState<string>("");
+  const [customModelScopeKey, setCustomModelScopeKey] = useState<string>("");
+  const [customFirecrawlKey, setCustomFirecrawlKey] = useState<string>("");
+  const [custom21stKey, setCustom21stKey] = useState<string>("");
 
   // Advanced Proxy & Scraping Settings
   const [enableCustomProxy, setEnableCustomProxy] = useState<boolean>(false);
@@ -272,6 +377,28 @@ export default function App() {
   ]);
   const [newMcpName, setNewMcpName] = useState("");
   const [newMcpCmd, setNewMcpCmd] = useState("");
+
+  const getCustomApiKeyVal = () => {
+    switch (selectedAiProvider) {
+      case "google": return customGoogleKey;
+      case "openai": return customOpenaiKey;
+      case "anthropic": return customAnthropicKey;
+      case "deepseek": return customDeepseekKey;
+      case "groq": return customGroqKey;
+      case "openrouter": return customOpenrouterKey;
+      case "opencode": return customOpencodeKey;
+      case "browseruse": return customBrowserUseKey;
+      case "ollama": return customOllamaKey;
+      case "exa": return customExaKey;
+      case "querit": return customQueritKey;
+      case "tavily": return customTavilyKey;
+      case "mistral": return customMistralKey;
+      case "modelscope": return customModelScopeKey;
+      case "firecrawl": return customFirecrawlKey;
+      case "21st": return custom21stKey;
+      default: return "";
+    }
+  };
 
   // Skills Hub Checklist State
   const [skillsList, setSkillsList] = useState([
@@ -690,9 +817,12 @@ SECTION 8 — Summary Table`;
         body: JSON.stringify({ 
           compiledPrompt,
           aiSettings: {
+            provider: selectedAiProvider,
             model: selectedAiModel,
             temperature: aiTemperature,
             systemInstruction: aiSystemInstruction,
+            customApiKey: getCustomApiKeyVal(),
+            agentRouterBaseUrl: customAgentRouterBaseUrl,
           }
         })
       });
@@ -989,9 +1119,12 @@ We built a weighted preference model based on your database structure:
           htmlSnippet: response.rawHtml,
           userObjective: aiObjective,
           aiSettings: {
+            provider: selectedAiProvider,
             model: selectedAiModel,
             temperature: aiTemperature,
             systemInstruction: aiSystemInstruction,
+            customApiKey: getCustomApiKeyVal(),
+            agentRouterBaseUrl: customAgentRouterBaseUrl,
           }
         }),
       });
@@ -1007,7 +1140,7 @@ We built a weighted preference model based on your database structure:
     } catch (e: any) {
       console.error(e);
       setAiStatus("error");
-      alert(e.message || "Gemini was unable to complete the structural recommendation.");
+      alert(e.message || "AI core was unable to complete the structural recommendation.");
     }
   };
 
@@ -1037,9 +1170,12 @@ We built a weighted preference model based on your database structure:
           messages: [...chatHistory, userMsg],
           documentContext: documentContext,
           aiSettings: {
+            provider: selectedAiProvider,
             model: selectedAiModel,
             temperature: aiTemperature,
             systemInstruction: aiSystemInstruction,
+            customApiKey: getCustomApiKeyVal(),
+            agentRouterBaseUrl: customAgentRouterBaseUrl,
           }
         }),
       });
@@ -2833,6 +2969,40 @@ We built a weighted preference model based on your database structure:
                       </div>
 
                       <div className="flex flex-col gap-3 text-xs">
+                        {/* Provider Dropdown */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">AI API Provider</label>
+                          <select
+                            value={selectedAiProvider}
+                            onChange={(e) => {
+                              const newProvider = e.target.value;
+                              setSelectedAiProvider(newProvider);
+                              if (PROVIDER_MODELS[newProvider]?.length > 0) {
+                                setSelectedAiModel(PROVIDER_MODELS[newProvider][0].id);
+                              }
+                            }}
+                            className="bg-[#131314] border border-[#3c4043] rounded-xl px-3 py-2 text-slate-300 font-mono focus:outline-none focus:border-purple-400 cursor-pointer"
+                          >
+                            <option value="google">Google Gemini (Direct / Fast-track)</option>
+                            <option value="openai">OpenAI (ChatGPT Enterprise)</option>
+                            <option value="anthropic">Anthropic Claude (Structured Expert)</option>
+                            <option value="deepseek">DeepSeek (V3 & R1 Reasoner)</option>
+                            <option value="groq">Groq (Ultra-low Latency LLaMA)</option>
+                            <option value="openrouter">OpenRouter (Unified LLM Gateway)</option>
+                            <option value="opencode">OpenCode AI (Code Synthesis)</option>
+                            <option value="browseruse">Browser Use (Agent Flow)</option>
+                            <option value="agentrouter">Agent Router (Custom Orchestrator)</option>
+                            <option value="ollama">Ollama (Local Host Inference)</option>
+                            <option value="exa">Exa (Neural Search Grounding)</option>
+                            <option value="querit">Querit (Intelligent Parsing)</option>
+                            <option value="tavily">Tavily (Search & Extraction)</option>
+                            <option value="mistral">Mistral AI (Codestral & Large)</option>
+                            <option value="modelscope">ModelScope / DashScope</option>
+                            <option value="firecrawl">Firecrawl (Web Scrapper API)</option>
+                            <option value="21st">21st.dev Extension</option>
+                          </select>
+                        </div>
+
                         {/* Model Dropdown */}
                         <div className="flex flex-col gap-1">
                           <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Target Model Name</label>
@@ -2841,10 +3011,9 @@ We built a weighted preference model based on your database structure:
                             onChange={(e) => setSelectedAiModel(e.target.value)}
                             className="bg-[#131314] border border-[#3c4043] rounded-xl px-3 py-2 text-slate-300 font-mono focus:outline-none focus:border-purple-400 cursor-pointer"
                           >
-                            <option value="gemini-3.5-flash">Gemini 3.5 Flash (Default - Rapid & Modular)</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (Balanced Reasoning)</option>
-                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Extreme Precision)</option>
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy Fast-Track)</option>
+                            {(PROVIDER_MODELS[selectedAiProvider] || []).map((m) => (
+                              <option key={m.id} value={m.id}>{m.label}</option>
+                            ))}
                           </select>
                         </div>
 
@@ -2879,18 +3048,74 @@ We built a weighted preference model based on your database structure:
 
                         {/* Custom secret Key override */}
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Custom Gemini API Key Override</label>
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            Custom {selectedAiProvider.substring(0, 1).toUpperCase() + selectedAiProvider.substring(1)} API Key Override
+                          </label>
                           <input
                             type="password"
-                            placeholder="Enter custom API Key (Optional - Defaults to Workspace Secret)"
-                            value={customApiKey}
-                            onChange={(e) => setCustomApiKey(e.target.value)}
+                            placeholder={selectedAiProvider === "agentrouter" ? "Enter Custom AGENT_ROUTER API Key (Optional)" : `Enter custom ${selectedAiProvider.toUpperCase()} API Key (Optional)`}
+                            value={
+                              selectedAiProvider === "google" ? customGoogleKey :
+                              selectedAiProvider === "openai" ? customOpenaiKey :
+                              selectedAiProvider === "anthropic" ? customAnthropicKey :
+                              selectedAiProvider === "deepseek" ? customDeepseekKey :
+                              selectedAiProvider === "groq" ? customGroqKey :
+                              selectedAiProvider === "openrouter" ? customOpenrouterKey :
+                              selectedAiProvider === "opencode" ? customOpencodeKey :
+                              selectedAiProvider === "browseruse" ? customBrowserUseKey :
+                              selectedAiProvider === "ollama" ? customOllamaKey :
+                              selectedAiProvider === "exa" ? customExaKey :
+                              selectedAiProvider === "querit" ? customQueritKey :
+                              selectedAiProvider === "tavily" ? customTavilyKey :
+                              selectedAiProvider === "mistral" ? customMistralKey :
+                              selectedAiProvider === "modelscope" ? customModelScopeKey :
+                              selectedAiProvider === "firecrawl" ? customFirecrawlKey :
+                              selectedAiProvider === "21st" ? custom21stKey : ""
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (selectedAiProvider === "google") setCustomGoogleKey(val);
+                              else if (selectedAiProvider === "openai") setCustomOpenaiKey(val);
+                              else if (selectedAiProvider === "anthropic") setCustomAnthropicKey(val);
+                              else if (selectedAiProvider === "deepseek") setCustomDeepseekKey(val);
+                              else if (selectedAiProvider === "groq") setCustomGroqKey(val);
+                              else if (selectedAiProvider === "openrouter") setCustomOpenrouterKey(val);
+                              else if (selectedAiProvider === "opencode") setCustomOpencodeKey(val);
+                              else if (selectedAiProvider === "browseruse") setCustomBrowserUseKey(val);
+                              else if (selectedAiProvider === "ollama") setCustomOllamaKey(val);
+                              else if (selectedAiProvider === "exa") setCustomExaKey(val);
+                              else if (selectedAiProvider === "querit") setCustomQueritKey(val);
+                              else if (selectedAiProvider === "tavily") setCustomTavilyKey(val);
+                              else if (selectedAiProvider === "mistral") setCustomMistralKey(val);
+                              else if (selectedAiProvider === "modelscope") setCustomModelScopeKey(val);
+                              else if (selectedAiProvider === "firecrawl") setCustomFirecrawlKey(val);
+                              else if (selectedAiProvider === "21st") setCustom21stKey(val);
+                            }}
                             className="bg-[#131314] border border-[#3c4043] rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-400 placeholder:text-slate-600"
                           />
                           <p className="text-[10px] text-slate-500 leading-normal">
-                            Leave blank to securely call our serverside Google AI Studio integration key managed in Settings.
+                            {selectedAiProvider === "google" 
+                              ? "Leave blank to securely call our serverside Google AI Studio integration key managed in Settings."
+                              : `Add your custom ${selectedAiProvider.toUpperCase()} credentials or configure it as ${selectedAiProvider.toUpperCase() === "21ST" ? "API_KEY_21ST" : selectedAiProvider.toUpperCase() + "_API_KEY"} system environment variable.`}
                           </p>
                         </div>
+
+                        {/* Agent Router Base URL configuration */}
+                        {selectedAiProvider === "agentrouter" && (
+                          <div className="flex flex-col gap-1 mt-1">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Agent Router Base URL</label>
+                            <input
+                              type="text"
+                              value={customAgentRouterBaseUrl}
+                              onChange={(e) => setCustomAgentRouterBaseUrl(e.target.value)}
+                              placeholder="https://agentrouter.org/v1"
+                              className="bg-[#131314] border border-[#3c4043] rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-400"
+                            />
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                              Defaults to agentrouter.org gateway. You can also customize this for local proxy solutions.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
