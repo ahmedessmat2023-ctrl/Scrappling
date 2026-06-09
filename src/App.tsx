@@ -45,252 +45,12 @@ import {
   ChatMessage, 
   PresetTemplate 
 } from "./types";
-
-// Supported Multi-Provider LLM Models list for the Scrapling AI Assistant
-const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
-  google: [
-    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash (Default - Rapid & Modular)" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanced Reasoning)" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Precision Parsing)" },
-    { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro (Legacy Deep Context)" },
-    { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Legacy Speed)" },
-  ],
-  openai: [
-    { id: "gpt-4o", label: "GPT-4o (High-Intelligence Flagship)" },
-    { id: "gpt-4o-mini", label: "GPT-4o Mini (Cost-efficient Speed)" },
-    { id: "o1-mini", label: "o1-mini (Reasoning Specialist)" },
-    { id: "o3-mini", label: "o3-mini (Advanced Analysis)" },
-    { id: "gpt-4-turbo", label: "GPT-4 Turbo (Legacy Developer Classic)" },
-  ],
-  anthropic: [
-    { id: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (State-of-the-Art Structured)" },
-    { id: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (Lightning Fast Reasoning)" },
-    { id: "claude-3-opus-latest", label: "Claude 3 Opus (Extreme Narrative Accuracy)" },
-  ],
-  deepseek: [
-    { id: "deepseek-chat", label: "DeepSeek V3 (Chat & Parsing)" },
-    { id: "deepseek-reasoner", label: "DeepSeek R1 (Reinforced Reasoning)" },
-  ],
-  groq: [
-    { id: "llama-3.3-70b-versatile", label: "LLaMA 3.3 70B (High Versatility)" },
-    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B (High-throughput MoE)" },
-    { id: "gemma2-9b-it", label: "Gemma 1 9B (Ultra-fast Instruction)" },
-  ],
-  openrouter: [
-    { id: "meta-llama/llama-3.3-70b-instruct", label: "LLaMA 3.3 70B Instruct (via OpenRouter)" },
-    { id: "deepseek/deepseek-r1", label: "DeepSeek R1 Raw (via OpenRouter)" },
-    { id: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet (via OpenRouter)" },
-    { id: "mistralai/mistral-large", label: "Mistral Large 2 (via OpenRouter)" },
-  ],
-  opencode: [
-    { id: "opencode-qwen-2.5-coder-32b", label: "OpenCode Qwen 2.5 Coder 32B" },
-    { id: "opencode-llama-3-8b", label: "OpenCode LLaMA 3 8B" },
-  ],
-  browseruse: [
-    { id: "browser-use-gpt-4o", label: "Browser Use Agent (GPT-4o Backend)" },
-    { id: "browser-use-claude-3-5", label: "Browser Use Agent (Claude 3.5 Backend)" },
-  ],
-  agentrouter: [
-    { id: "agent-router-default", label: "Agent Router (Default Engine)" },
-    { id: "agent-llama-3.3-70b", label: "Agent Router (LLaMA 3.3 70B)" },
-  ],
-  ollama: [
-    { id: "llama3.3:latest", label: "Ollama (LLaMA 3.3)" },
-    { id: "mistral:latest", label: "Ollama (Mistral)" },
-    { id: "qwen2.5-coder:latest", label: "Ollama (Qwen 2.5 Coder)" },
-    { id: "phi3:latest", label: "Ollama (Phi 3)" },
-  ],
-  exa: [
-    { id: "exa-search-neural", label: "Exa Neural Search Grounding" },
-    { id: "exa-find-similar", label: "Exa Similar Document Extractor" },
-  ],
-  querit: [
-    { id: "querit-parser-v2", label: "Querit Parser V2 Structure" },
-    { id: "querit-extract-pro", label: "Querit Extract Pro Engine" },
-  ],
-  tavily: [
-    { id: "tavily-search-extract", label: "Tavily Web Search & Extraction" },
-    { id: "tavily-get-search-context", label: "Tavily Scraped Web context" },
-  ],
-  mistral: [
-    { id: "mistral-large-latest", label: "Mistral Large (Latest Flagship)" },
-    { id: "pixtral-large-latest", label: "Pixtral Large (Latest Multimodal)" },
-    { id: "codestral-latest", label: "Codestral (Scraping/Coding Specialist)" },
-    { id: "open-mistral-nemo", label: "Mistral Nemo (Light & Fast)" },
-  ],
-  modelscope: [
-    { id: "qwen-max", label: "ModelScope DashScope Qwen Max" },
-    { id: "qwen-plus", label: "ModelScope DashScope Qwen Plus" },
-    { id: "qwen-turbo", label: "ModelScope DashScope Qwen Turbo" },
-  ],
-  firecrawl: [
-    { id: "firecrawl-scrape", label: "Firecrawl Scrape API" },
-    { id: "firecrawl-crawl", label: "Firecrawl Crawl API" },
-    { id: "firecrawl-map", label: "Firecrawl Sitemap Locator" },
-  ],
-  "21st": [
-    { id: "21st-coder-v1", label: "21st.dev Coder V1" },
-    { id: "21st-extractor", label: "21st.dev Intelligent Extractor" },
-  ],
-};
-
-// Dynamic Python Script Builder
-const generatePythonScript = (config: {
-  url: string;
-  extraction_type: string;
-  impersonate: string;
-  main_content_only: boolean;
-  css_selector: string;
-  headers: Record<string, string>;
-  cookies: Record<string, string>;
-  timeout: number;
-  follow_redirects: string | boolean;
-}) => {
-  const headersStr = Object.keys(config.headers).length > 0
-    ? `,\n    headers=${JSON.stringify(config.headers, null, 4).replace(/\n/g, "\n    ")}`
-    : "";
-  const cookiesStr = Object.keys(config.cookies).length > 0
-    ? `,\n    cookies=${JSON.stringify(config.cookies, null, 4).replace(/\n/g, "\n    ")}`
-    : "";
-
-  return `from scrapling import Fetcher
-
-# Initialize Scrapling Fetcher with stealth active browser fingerprint
-# Fingerprint: "${config.impersonate}" (Spoofs browser headers, SSL/TLS handshakes, and canvas metrics)
-fetcher = Fetcher(
-    "${config.url}"${headersStr}${cookiesStr},
-    impersonate="${config.impersonate}",
-    timeout=${config.timeout},
-    follow_redirects=${config.follow_redirects === "safe" ? '"safe"' : config.follow_redirects}
-)
-
-# HTTP metadata
-print(f"Status Code: {fetcher.status}")
-print(f"Final Resolving URL: {fetcher.url}")
-
-# Extractions config:
-# - extraction_type: "${config.extraction_type}"
-# - main_content_only: ${config.main_content_only}
-${
-  config.css_selector
-    ? `
-# Querying matching elements using CSS Selector: "${config.css_selector}"
-elements = fetcher.css("${config.css_selector}")
-print(f"Found {len(elements)} matching target nodes")
-
-for el in elements:
-    # Print the clean node text or direct HTML representation
-    print(el.text)
-`
-    : `
-# Extract entire page contents
-print(fetcher.text)
-`
-}
-`;
-};
-
-// Preset Scrapling targets and configurations
-const PRESETS: PresetTemplate[] = [
-  {
-    name: "Hacker News",
-    logo: "Y",
-    description: "Trending developers news. Best for parsing nested grids and structural tabular lists.",
-    url: "https://news.ycombinator.com",
-    extraction_type: "html",
-    impersonate: "chrome",
-    css_selector: "span.titleline > a",
-  },
-  {
-    name: "Wikipedia: Scrape",
-    logo: "W",
-    description: "An offline mirror of Wikipedia. Ideal for parsing infoboxes, paragraphs, and headings.",
-    url: "https://en.wikipedia.org/wiki/Web_scraping",
-    extraction_type: "markdown",
-    impersonate: "firefox",
-    css_selector: "table.infobox th.infobox-label",
-  },
-  {
-    name: "GadgetWorld Store",
-    logo: "G",
-    description: "Multi-item shopping card layout. Best for testing title, discounts, and prices matrix.",
-    url: "https://gadgetworld-example.store/products",
-    extraction_type: "html",
-    impersonate: "safari",
-    css_selector: "div.product-card",
-  },
-];
-
-// Dynamic source document modifier for DOM Visualizer iframe
-const getVisualizerSrcDoc = (rawHtml: string, baseUrl: string, selector: string) => {
-  if (!rawHtml) return "";
-
-  // Base URL tag to safely load relative assets/stylesheets/images from original server
-  const baseTag = baseUrl ? `<base href="${baseUrl}">` : "";
-
-  // High quality hover and highlight outline CSS definition
-  const highlightStyles = selector.trim() ? `
-    <style id="scrapling-highlighter">
-      /* High-contrast animated highlight on matched nodes */
-      ${selector.trim()} {
-        outline: 3px solid #f59e0b !important;
-        outline-offset: 1px !important;
-        background-color: rgba(245, 158, 11, 0.22) !important;
-        box-shadow: 0 0 14px rgba(245, 158, 11, 0.45) !important;
-        position: relative !important;
-        transition: outline 0.15s ease-in-out, background-color 0.15s ease-in-out !important;
-        z-index: 10 !important;
-      }
-      /* Hover transition to green for focused visual check */
-      ${selector.trim()}:hover {
-        outline: 3px solid #10b981 !important;
-        background-color: rgba(16, 185, 129, 0.28) !important;
-        box-shadow: 0 0 18px rgba(16, 185, 129, 0.55) !important;
-      }
-    </style>
-  ` : "";
-
-  const commonEmbedStyles = `
-    <style>
-      /* Smooth high precision scrolling */
-      html {
-        scroll-behavior: smooth;
-      }
-      ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f5f9;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 5px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    </style>
-  `;
-
-  let processed = rawHtml;
-
-  // Let's remove conflicting base tag if already defined on target site
-  processed = processed.replace(/<base\b[^>]*>/gi, "");
-
-  const fullInjection = baseTag + commonEmbedStyles + highlightStyles;
-
-  // Prepend inside Head tag
-  if (processed.includes("</head>")) {
-    processed = processed.replace("</head>", `${fullInjection}</head>`);
-  } else if (processed.includes("<head>")) {
-    processed = processed.replace("<head>", `<head>${fullInjection}`);
-  } else {
-    processed = fullInjection + processed;
-  }
-
-  return processed;
-};
+import {
+  PROVIDER_MODELS,
+  PRESETS,
+  generatePythonScript,
+  getVisualizerSrcDoc
+} from "./utils";
 
 export default function App() {
   // Input parameters state
@@ -328,7 +88,7 @@ export default function App() {
   const [frameWidth, setFrameWidth] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
   // Workspace Tabs
-  const [activeTab, setActiveTab] = useState<"response" | "code" | "ai" | "http" | "influencer" | "settings">("response");
+  const [activeTab, setActiveTab] = useState<"response" | "code" | "ai" | "influencer" | "settings">("response");
 
   // Collapsible panel states for Left Column (Crawl Form builder)
   const [isFingerprintsCollapsed, setIsFingerprintsCollapsed] = useState(false);
@@ -369,15 +129,6 @@ export default function App() {
   const [requestDelayMs, setRequestDelayMs] = useState<number>(150);
   const [adBlockerEnabled, setAdBlockerEnabled] = useState<boolean>(true);
 
-  // MCP Servers State
-  const [mcpServers, setMcpServers] = useState([
-    { id: "1", name: "File Explorer Resource Link", status: "active", type: "stdio", cmd: "npx @modelcontextprotocol/server-filesystem" },
-    { id: "2", name: "Google Search Grounding Engine", status: "active", type: "sse", cmd: "https://grounding.modelcontextprotocol.io" },
-    { id: "3", name: "BeautifulSoup & LXML Parser Node", status: "inactive", type: "stdio", cmd: "python -m mcp_bs4_server" }
-  ]);
-  const [newMcpName, setNewMcpName] = useState("");
-  const [newMcpCmd, setNewMcpCmd] = useState("");
-
   const getCustomApiKeyVal = () => {
     switch (selectedAiProvider) {
       case "google": return customGoogleKey;
@@ -399,22 +150,6 @@ export default function App() {
       default: return "";
     }
   };
-
-  // Skills Hub Checklist State
-  const [skillsList, setSkillsList] = useState([
-    { id: "1", name: "Google Workspace Sync Engine", description: "Export scraped tables straight to live Google Sheets/Docs", enabled: true, category: "Integrations" },
-    { id: "2", name: "Stealth TLS Fingerprinter", description: "Injects browser TLS ClientHello payloads to bypass Cloudflare", enabled: true, category: "Security" },
-    { id: "3", name: "Reactive Shadow DOM Traverser", description: "Bridges and extracts content inside closed web-component frames", enabled: false, category: "Engine Parser" },
-    { id: "4", name: "Continuous Cron Scheduler Crawler", description: "Automates repetitive daily stealth web fetches with reports", enabled: false, category: "Automation" }
-  ]);
-
-  // Plugin Hub Checklist State
-  const [pluginsList, setPluginsList] = useState([
-    { id: "1", name: "Commercial Google Ad & Analytics Element Purge Filter", description: "Automatically strip DOM tracking grids", enabled: true },
-    { id: "2", name: "Interactive Cookie Banner Automated Consent Bypass", description: "Pre-accept compliance targets silently", enabled: true },
-    { id: "3", name: "Dynamic Screen Capture Webpage Viewer (Canvas OCR)", description: "Convert imagery graphics elements to rich markdown", enabled: false },
-    { id: "4", name: "Anti-Captchas Auto solver integration", description: "Passes stealth turnstile elements seamlessly", enabled: false }
-  ]);
 
   // Influencer Intelligence Analyst States
   const [influencerPromptType, setInfluencerPromptType] = useState<"prompt1" | "prompt2">("prompt1");
@@ -1208,42 +943,7 @@ We built a weighted preference model based on your database structure:
     }
   };
 
-  // Helper events for custom dynamic settings tab
-  const handleAddMcpServer = () => {
-    if (!newMcpName.trim() || !newMcpCmd.trim()) return;
-    const newServer = {
-      id: Date.now().toString(),
-      name: newMcpName.trim(),
-      status: "active",
-      type: "stdio",
-      cmd: newMcpCmd.trim()
-    };
-    setMcpServers([...mcpServers, newServer]);
-    setNewMcpName("");
-    setNewMcpCmd("");
-  };
 
-  const handleToggleMcpStatus = (id: string) => {
-    setMcpServers(
-      mcpServers.map((s) => (s.id === id ? { ...s, status: s.status === "active" ? "inactive" : "active" } : s))
-    );
-  };
-
-  const handleRemoveMcpServer = (id: string) => {
-    setMcpServers(mcpServers.filter((s) => s.id !== id));
-  };
-
-  const handleToggleSkill = (id: string) => {
-    setSkillsList(
-      skillsList.map((sk) => (sk.id === id ? { ...sk, enabled: !sk.enabled } : sk))
-    );
-  };
-
-  const handleTogglePlugin = (id: string) => {
-    setPluginsList(
-      pluginsList.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p))
-    );
-  };
 
   // Header handlers
   const handleAddHeader = () => {
@@ -1286,7 +986,7 @@ We built a weighted preference model based on your database structure:
   const activePythonCode = generatePythonScript({
     url,
     extraction_type: extractionType,
-    impersonate,
+    impersonate: impersonate,
     main_content_only: mainContentOnly,
     css_selector: cssSelector,
     headers,
@@ -1296,155 +996,106 @@ We built a weighted preference model based on your database structure:
   });
 
   return (
-    <div className="min-h-screen bg-[#0e0e11] text-[#f0f4f9] flex flex-col font-sans selection:bg-[#9b72f3]/30 selection:text-white">
-      {/* Visual Header */}
-      <header className="bg-[#131314] border-b border-[#2d2f31]/80 py-4 px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm backdrop-blur-md bg-opacity-95">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-tr from-[#4285f4] via-[#9b72f3] to-[#d9657b] p-2.5 rounded-xl text-white flex items-center justify-center shadow-md shadow-purple-500/10">
-            <Cpu className="w-5 h-5 text-white" />
+    <div className="h-screen max-h-screen w-screen bg-[#090a0d] text-[#f0f4f9] flex flex-col font-sans selection:bg-[#9b72f3]/30 selection:text-white overflow-hidden pb-0">
+      {/* Visual Header - Compact & Premium - Fixed Height */}
+      <header className="bg-[#101114] border-b border-[#2d2f31]/80 py-3 px-6 flex items-center justify-between flex-shrink-0 z-50 shadow-sm leading-none">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-gradient-to-tr from-[#4285f4] via-[#9b72f3] to-[#d9657b] p-2 rounded-xl text-white flex items-center justify-center shadow-md shadow-purple-500/10">
+            <Cpu className="w-4.5 h-4.5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#4285f4] via-[#9b72f3] to-[#d9657b]">Web Scraper Lab</h1>
+              <h1 className="text-base font-bold font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#4285f4] via-[#9b72f3] to-[#d9657b]">Web Scraper Lab</h1>
               <span className="bg-[#9b72f3]/10 text-[#9b72f3] text-[9px] uppercase font-semibold px-2 py-0.5 rounded-full border border-[#9b72f3]/20 font-mono tracking-wider">
                 Scrapling spec v0.4.8
               </span>
             </div>
-            <p className="text-xs text-[#8e918f]">Fingerprint Spoofing & Selector Analysis Workbench</p>
+            <p className="text-[10px] text-[#8e918f] font-mono leading-none mt-0.5 font-medium">Bypass anti-bots with spoofed fingerprint signatures</p>
           </div>
         </div>
 
         {/* Live system status badge */}
-        <div className="flex items-center gap-4 gap-y-1 sm:gap-6">
-          <div className="flex items-center gap-2 bg-[#1e1f20] border border-[#2d2f31]/80 px-3.5 py-1.5 rounded-full text-xs font-mono">
-            <span className="flex h-2 w-2 relative">
+        <div className="flex items-center gap-3">
+          {response && (
+            <div className="hidden sm:flex items-center gap-2 bg-[#1b1c1e] border border-[#2d2f31]/60 px-3 py-1 text-[10px] font-mono text-slate-400 rounded-lg">
+              <span className="flex h-1.5 w-1.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span>Payload: <strong className="text-slate-200">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</strong></span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-[#1e1f20] border border-[#2d2f31]/80 px-3 py-1.5 rounded-full text-[10px] font-mono flex-shrink-0">
+            <span className="flex h-1.5 w-1.5 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
             </span>
-            <span className="text-[#8e918f] select-all uppercase tracking-wider text-[10px]">Active Sandbox Container</span>
+            <span className="text-[#8e918f] select-all uppercase tracking-wider text-[9px]">Active Sandbox</span>
           </div>
         </div>
       </header>
 
-      {/* Quick Container Options and Preset Sidebar */}
-      <div className="bg-[#131314]/70 border-b border-[#2d2f31]/40 py-4.5 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Compass className="w-4 h-4 text-[#9b72f3]" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#8e918f]">Sandbox Preset Mocks:</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full md:w-auto">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                id={`preset-${preset.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
-                onClick={() => handleLoadPreset(preset)}
-                className="flex items-center gap-3 bg-[#1e1f20] border border-[#2d2f31] hover:border-[#9b72f3] hover:bg-[#25272a] px-4 py-2 text-left rounded-2xl transition-all duration-300 shadow-sm hover:shadow-purple-500/5 group"
-              >
-                <div className="w-7 h-7 bg-[#131314] text-[#9b72f3] rounded-xl flex items-center justify-center font-bold text-sm border border-[#2d2f31] group-hover:bg-gradient-to-tr group-hover:from-[#4285f4] group-hover:to-[#9b72f3] group-hover:text-white group-hover:border-transparent transition-all">
-                  {preset.logo}
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-[#e3e3e3] group-hover:text-white">{preset.name}</div>
-                  <div className="text-[10px] text-[#8e918f] truncate max-w-[140px]">{preset.url}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Master Workspace Navigation Tabs */}
-      <div className="bg-[#131314] border-b border-[#2d2f31]/85 sticky top-[72px] z-40 bg-opacity-95 backdrop-blur-md shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 pt-3 flex flex-wrap gap-1.5 justify-start md:justify-between items-center">
-          <div className="flex flex-wrap gap-1">
-            {[
-              { id: "response", label: "Scraped Sandbox", icon: Eye, description: "Selector match & live DOM view" },
-              { id: "code", label: "Scrapling Script", icon: FileCode, description: "Python crawler output script" },
-              { id: "ai", label: "Gemini Assistant", icon: Sparkles, description: "Intelligent element parse chat" },
-              { id: "http", label: "HTTP Metadata", icon: Terminal, description: "Spoofed packet transaction traces" },
-              { id: "influencer", label: "Influencer AI Analyst", icon: Users, description: "Social entity profiling & exports" },
-              { id: "settings", label: "Advanced Dev Configs", icon: Settings, description: "Proxies, MCP registry & configs" },
-            ].map((tab) => {
-              const TabIcon = tab.icon;
-              const isSelected = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  id={`global-tab-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex flex-col gap-0.5 px-4.5 py-3 text-left transition-all duration-150 relative cursor-pointer border-t-2 border-transparent select-none min-w-[130px] md:min-w-[155px] ${
-                    isSelected
-                      ? "bg-[#0e0e11] text-[#f0f4f9] border-t-[#9b72f3]"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-[#1e1f20]/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <TabIcon className={`w-3.5 h-3.5 ${isSelected ? "text-[#9b72f3]" : "text-slate-500"}`} />
-                    <span className="text-xs font-bold tracking-tight">{tab.label}</span>
-                  </div>
-                  <span className="text-[9px] text-[#8e918f] font-mono leading-none truncate max-w-[140px] md:max-w-[160px]">{tab.description}</span>
-                </button>
-              );
-            })}
-          </div>
-          {response && (
-            <div className="hidden lg:flex items-center gap-3 bg-[#1e1f20] border border-[#2d2f31]/60 px-3 py-1 rounded-xl text-[10px] font-mono text-slate-400 mr-2">
-              <span className="flex h-1.5 w-1.5 relative animate-none">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              <span>Loaded: <strong className="text-slate-200">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</strong></span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6">
-        {/* Render active workspace layouts dynamically based on selected option */}
-        {activeTab === "response" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
-            {/* LEFT COLUMN: Request Builder Form */}
-            <section className="lg:col-span-5 flex flex-col gap-5">
-          {/* Target URL Input Panel */}
-          <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <label htmlFor="url-input" className="text-xs font-bold text-[#e3e3e3] uppercase tracking-widest flex items-center gap-2 font-display">
-                <Globe className="w-4 h-4 text-[#4285f4]" /> Target URL Sandbox
-              </label>
-              {isLoading && (
-                <span className="flex items-center gap-1.5 text-xs text-[#d9657b] font-mono">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Crawling...
-                </span>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Shield className="w-4 h-4 text-slate-500" />
-                </div>
-                <input
-                  id="url-input"
-                  type="url"
-                  placeholder="Enter target URL..."
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="w-full bg-[#1e1f20] border border-[#3c4043] focus:border-[#9b72f3] text-[#f0f4f9] rounded-2xl py-3 pl-11 pr-4 text-sm font-mono placeholder-slate-600 focus:outline-none transition-all"
-                />
+      {/* Main Workspace Frame */}
+      <main className="flex-1 w-full p-4 lg:p-5 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex flex-col lg:flex-row gap-5 h-full w-full min-h-0 overflow-hidden">
+          {/* PERSISTENT LEFT SIDEBAR: Scraper Configs & Inputs (Only visible on Fetch & Code views, expands to full width on AI or Analyst) */}
+          {(activeTab === "response" || activeTab === "code") && (
+            <section className="w-full lg:w-[350px] xl:w-[390px] flex-shrink-0 flex flex-col gap-4 overflow-y-auto max-h-full pr-1.5 pb-2 scrollbar-thin min-h-0">
+            {/* Target URL Input Panel */}
+            <div className="bg-[#131314] border border-[#2d2f31]/80 p-4.5 rounded-2xl shadow-sm flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <label htmlFor="url-input" className="text-[11px] font-bold text-[#e3e3e3] uppercase tracking-wider flex items-center gap-1.5 font-display">
+                  <Globe className="w-3.5 h-3.5 text-[#4285f4]" /> Target URL Sandbox
+                </label>
+                {isLoading && (
+                  <span className="flex items-center gap-1 text-[11px] text-[#d9657b] font-mono animate-pulse">
+                    <RefreshCw className="w-3" /> Crawling...
+                  </span>
+                )}
               </div>
 
-              <button
-                id="execute-crawl-btn"
-                onClick={() => handleScrape()}
-                disabled={isLoading}
-                className="bg-gradient-to-r from-[#4285f4] via-[#9b72f3] to-[#8b5cf6] hover:brightness-110 hover:shadow-lg hover:shadow-[#9b72f3]/20 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-full flex items-center gap-2 cursor-pointer transition-all duration-300 justify-center active:scale-[0.98]"
-              >
-                <Play className="w-4 h-4 fill-white text-white" />
-                <span>Run</span>
-              </button>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Shield className="w-3.5 h-3.5 text-slate-550" />
+                  </div>
+                  <input
+                    id="url-input"
+                    type="url"
+                    placeholder="Enter target URL..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="w-full bg-[#1e1f20]/90 border border-[#2d2f31] focus:border-[#9b72f3] text-[#f0f4f9] rounded-xl py-2 pl-9 pr-3 text-xs font-mono placeholder-slate-650 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <button
+                  id="execute-crawl-btn"
+                  onClick={() => handleScrape()}
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-[#4285f4] via-[#9b72f3] to-[#8b5cf6] hover:brightness-110 hover:shadow-md disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 justify-center active:scale-[0.98] text-xs h-9"
+                >
+                  <Play className="w-3 h-3 fill-white text-white" />
+                  <span>Run</span>
+                </button>
+              </div>
+
+              {/* Compact Quick Sample Pills inside URL panel to save a full header/row of presets */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 pt-2.5 border-t border-[#2d2f31]/50">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono mr-1">Quick Try:</span>
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    id={`preset-${preset.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
+                    onClick={() => handleLoadPreset(preset)}
+                    className="px-2 py-0.5 text-[10px] bg-[#1e1f20]/75 hover:bg-[#25272a] border border-[#2d2f31] hover:border-[#9b72f3]/45 rounded-md text-slate-300 font-medium transition-all duration-150 cursor-pointer flex items-center gap-1 hover:text-white"
+                  >
+                    <span className="text-[#9b72f3] text-[9px] font-bold">{preset.logo}</span>
+                    <span>{preset.name.split(":")[0]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
           {/* Configuration Parameters accordion-like panel */}
           <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
@@ -1715,71 +1366,54 @@ We built a weighted preference model based on your database structure:
             )}
           </div>
         </section>
+        )}
 
-        {/* RIGHT COLUMN: Interactive Selector Workspace Workspace & AI */}
-        <section className="lg:col-span-7 flex flex-col gap-5">
-          {/* Main Workspace Frame tabs */}
-          <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-3xl overflow-hidden shadow-sm flex-1 flex flex-col">
-            <div className="bg-[#18191b] border-b border-[#2d2f31]/60 px-5 py-3.5 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display">Target Document Sandbox Live DOM View</span>
+        {/* PERSISTENT RIGHT STAGE: Output Panels, Code generation, AI Partner & Diagnostics */}
+        <section className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden h-full">
+          <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-2xl overflow-hidden shadow-sm flex-1 flex flex-col min-h-0 h-full">
+            {/* Unified Stage Tabs Toolbar (Compact IDE-like sub-navigation) */}
+            <div className="bg-[#18191b] border-b border-[#2d2f31]/85 p-2 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30">
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: "response", label: "DOM Playground", icon: Eye },
+                  { id: "code", label: "Python Script", icon: FileCode },
+                  { id: "ai", label: "Gemini AI Helper", icon: Sparkles },
+                  { id: "influencer", label: "Campaign Analyst", icon: Users },
+                  { id: "settings", label: "Diagnostics & Setup", icon: Settings },
+                ].map((tab) => {
+                  const TabIcon = tab.icon;
+                  const isSelected = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      id={`global-tab-${tab.id}`}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold select-none cursor-pointer transition-all duration-100 border ${
+                        isSelected
+                          ? "bg-[#9b72f3]/10 border-[#9b72f3]/30 text-[#e4daff] shadow-sm font-semibold"
+                          : "text-slate-400 border-transparent hover:text-slate-200 hover:bg-[#1e1f20]/45"
+                      }`}
+                    >
+                      <TabIcon className={`w-3.5 h-3.5 ${isSelected ? "text-[#9b72f3]" : "text-slate-500"}`} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">Interactive CSS element matches</span>
+
+              {response && (
+                <div className="hidden sm:flex items-center gap-2 bg-[#131314] border border-[#2d2f31]/70 px-3 py-1.5 text-[10px] font-mono text-slate-400 mr-1.5 rounded-lg">
+                  <span className="flex h-1.5 w-1.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span>Payload: <strong className="text-slate-200">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</strong></span>
+                </div>
+              )}
             </div>
 
-            {/* Error notifications */}
-            {errorMess && (
-              <div className="bg-red-950/20 border-b border-red-900/30 p-4 text-red-300 text-xs font-mono flex items-start gap-2.5">
-                <Shield className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold">Extraction Protocol Interruption:</span> {errorMess}
-                  <p className="mt-1 text-[11px] text-red-400/80">Using fallback mock representation layer to resume selector experiments.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Sandbox details summary indicator bar */}
-            {response && (
-              <div className="bg-[#131314]/50 border-b border-[#2d2f31]/60 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="text-[#8e918f] flex items-center gap-1.5 font-mono">
-                    <Clock className="w-3.5 h-3.5 text-[#4285f4]" />
-                    <span>Latency:</span>
-                    <span className="text-[#f0f4f9] font-semibold">{response.metadata.durationMs}ms</span>
-                  </div>
-                  <div className="text-[#8e918f] flex items-center gap-1.5 font-mono ml-2 border-l border-[#2d2f31] pl-3">
-                    <Layers className="w-3.5 h-3.5 text-[#9b72f3]" />
-                    <span>Page Size:</span>
-                    <span className="text-[#f0f4f9] font-semibold">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {response.metadata.isSandbox ? (
-                    <span className="bg-amber-950/40 text-amber-400 border border-amber-900/30 text-[10px] uppercase font-bold px-2 py-0.5 rounded-lg font-mono">
-                      CONTAINMENT SANDBOX
-                    </span>
-                  ) : (
-                    <span className="bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 text-[10px] uppercase font-bold px-2 py-0.5 rounded-lg font-mono flex items-center gap-1">
-                      LIVE DIRECT STREAM <ExternalLink className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                  {response.status === 200 ? (
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                      HTTP 200 OK
-                    </span>
-                  ) : (
-                    <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                      HTTP {response.status}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* TAB CONTENT SPACES */}
-            <div className="p-5 flex-1 flex flex-col bg-[#0e0e11]">
+            <div className="p-4 flex-1 flex flex-col bg-[#0e0e11] overflow-y-auto min-h-0 relative scrollbar-thin">
               {/* TAB 1: SCRAPED SANDBOX WITH VISUAL ELEMENT QUERY CONSOLE */}
               {activeTab === "response" && (() => {
                 // Parse raw text content into blocks/paragraphs
@@ -1803,6 +1437,54 @@ We built a weighted preference model based on your database structure:
 
                 return (
                   <div className="flex-1 flex flex-col gap-4">
+                    {/* Error notifications */}
+                    {errorMess && (
+                      <div className="bg-red-950/20 border border-red-900/30 p-3 rounded-xl text-red-350 text-[11px] font-mono flex items-start gap-2">
+                        <Shield className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Extraction Protocol Interruption:</span> {errorMess}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sandbox details summary indicator bar */}
+                    {response && (
+                      <div className="bg-[#131314] border border-[#2d2f31]/80 px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs mb-1">
+                        <div className="flex items-center gap-3">
+                          <div className="text-[#8e918f] flex items-center gap-1.5 font-mono">
+                            <Clock className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Latency:</span>
+                            <span className="text-[#f0f4f9] font-semibold">{response.metadata.durationMs}ms</span>
+                          </div>
+                          <div className="text-[#8e918f] flex items-center gap-1.5 font-mono border-l border-[#2d2f31] pl-3">
+                            <Layers className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Page Size:</span>
+                            <span className="text-[#f0f4f9] font-semibold">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {response.metadata.isSandbox ? (
+                            <span className="bg-amber-950/40 text-amber-400 border border-amber-900/40 text-[9px] uppercase font-bold px-2 py-0.5 rounded font-mono">
+                              CONTAINMENT SANDBOX
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-950/40 text-emerald-400 border border-emerald-900/40 text-[9px] uppercase font-bold px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                              LIVE DIRECT STREAM <ExternalLink className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                          {response.status === 200 ? (
+                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold px-2 py-0.5 rounded font-mono">
+                              HTTP 200 OK
+                            </span>
+                          ) : (
+                            <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-bold px-2 py-0.5 rounded font-mono">
+                              HTTP {response.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {/* CSS Live Query console input */}
                     <div className="bg-[#131314] border border-[#2d2f31]/80 p-3.5 rounded-2xl flex items-center gap-3 shadow-inner">
                       <Search className="w-4 h-4 text-[#4285f4] flex-shrink-0" />
@@ -2267,16 +1949,9 @@ We built a weighted preference model based on your database structure:
                   </div>
                 );
               })()}
-            </div>
-          </div>
-        </section>
-      </div>
-    ) : (
-      <section className="w-full animate-[fadeIn_0.2s_ease-out]">
-        <div className="w-full flex-1 flex flex-col">
-          <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-3xl p-6 shadow-md flex-1 flex flex-col w-full text-xs">
-            {/* TAB 2: EXECUTABLE PYTHON CODE GENERATOR */}
-            {activeTab === "code" && (
+
+              {/* TAB 2: EXECUTABLE PYTHON CODE GENERATOR */}
+              {activeTab === "code" && (
               <div className="flex-1 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-[#8e918f]">
@@ -2491,60 +2166,11 @@ We built a weighted preference model based on your database structure:
                 </div>
               )}
 
-              {/* TAB 4: DETAILED RESPONSE HEADERS & DIAGNOSTICS */}
-              {activeTab === "http" && (
-                <div className="flex-1 flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5 bg-[#131314] border border-[#2d2f31]/80 p-4 rounded-2xl">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
-                      Fingerprint Header spoof verification
-                    </span>
-                    <p className="text-[11px] text-[#8e918f] leading-normal">
-                      The active engine spoofed the TLS signature and sent the following user-agent headers to bypass anti-bot crawlers.
-                    </p>
-                    <div className="bg-[#1e1f20] p-3 rounded-xl border border-[#2d2f31] text-xs font-mono text-[#9b72f3] select-all leading-relaxed whitespace-pre-wrap">
-                      {response ? response.metadata.userAgent : "No sandbox session initiated."}
-                    </div>
-                  </div>
 
-                  <div className="flex-1 flex flex-col gap-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
-                      Response HTTP Headers
-                    </span>
-                    <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-2xl overflow-hidden overflow-y-auto max-h-[300px] shadow-sm">
-                      {!response ? (
-                        <div className="p-8 text-center text-slate-600 text-xs font-mono">
-                          No scrape response headers parsed yet.
-                        </div>
-                      ) : (
-                        <table className="w-full text-left font-mono text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-[#1e1f20] text-[#8e918f] border-b border-[#2d2f31]/80">
-                              <th className="p-3 font-semibold">Header Name</th>
-                              <th className="p-3 font-semibold">Header Value</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#2d2f31]/40">
-                            {Object.entries(response.headers).map(([key, val]) => (
-                              <tr key={key} className="hover:bg-[#1e1f20]/40">
-                                <td className="p-3 text-[#4285f4] font-semibold select-all font-mono truncate max-w-[170px]">
-                                  {key}
-                                </td>
-                                <td className="p-3 text-[#e3e3e3] select-all font-mono whitespace-pre-wrap break-all">
-                                  {val}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* TAB 5: INFLUENCER INTELLIGENCE ANALYST */}
               {activeTab === "influencer" && (
-                <div className="flex-1 flex flex-col xl:grid xl:grid-cols-12 gap-5 p-5 bg-[#131314] overflow-y-auto min-h-[600px] text-xs">
+                <div className="flex-1 flex flex-col xl:grid xl:grid-cols-12 gap-5 p-5 bg-[#131314] overflow-y-auto min-h-0 h-full text-xs">
                   {/* Left Column: Form Setup (xl:col-span-6) */}
                   <div className="xl:col-span-6 flex flex-col gap-4">
                     {/* Header */}
@@ -3229,203 +2855,90 @@ We built a weighted preference model based on your database structure:
                       </div>
                     </div>
 
-                  </div>
-
-                  {/* Category 3: Model Context Protocol (MCP) Hub */}
-                  <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-4 flex flex-col gap-4 shadow-sm hover:border-[#2d2f31]/100 transition-all">
-                    <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs">
-                          <Database className="w-4 h-4 text-[#9b72f3]" /> Model Context Protocol (MCP) Registry
-                        </span>
-                        <span className="text-[10px] text-[#8e918f]">Inject dynamic host file-systems & external APIs into Gemini prompt context</span>
-                      </div>
-                      <span className="text-[9px] bg-[#9b72f3]/10 text-[#9b72f3] border border-[#9b72f3]/25 px-2 py-0.5 rounded-full font-mono font-bold">
-                        {mcpServers.filter((s) => s.status === "active").length} linked
+                  {/* Category 3: Live Verification Logs & Real HTTP Diagnostics */}
+                  <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-5 flex flex-col gap-4 shadow-sm md:col-span-2">
+                    <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2.5">
+                      <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs">
+                        <Terminal className="w-4 h-4 text-emerald-400" /> Fingerprint Spoof & HTTP Diagnostics
                       </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-5 text-xs mt-1">
-                      {/* Left Block - Current active MCP servers */}
-                      <div className="md:col-span-7 flex flex-col gap-2">
-                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Attached Host MCP Servers</span>
-                        <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
-                          {mcpServers.map((server) => (
-                            <div key={server.id} className="flex justify-between items-center bg-[#131314] px-3.5 py-2.5 rounded-xl border border-[#2d2f31] gap-3 hover:border-slate-700 transition-all">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${server.status === "active" ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
-                                  <span className="font-bold text-[#f0f4f9] truncate block text-[11px]">{server.name}</span>
-                                </div>
-                                <span className="font-mono text-[9px] text-[#8e918f] truncate block mt-0.5">{server.cmd}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                  onClick={() => handleToggleMcpStatus(server.id)}
-                                  className={`px-2 py-1 rounded-lg text-[9px] font-bold border cursor-pointer transition-all ${
-                                    server.status === "active"
-                                      ? "bg-[#34a853]/15 text-[#34a853] border-[#34a853]/30 hover:bg-[#34a853]/25"
-                                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-350"
-                                  }`}
-                                >
-                                  {server.status === "active" ? "Connected" : "Connect"}
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveMcpServer(server.id)}
-                                  className="text-red-400 hover:text-red-350 p-1 hover:bg-[#1a1a1c] rounded-lg transition-all"
-                                  title="Unbind MCP Server"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Right Block - Add new MCP server */}
-                      <div className="md:col-span-5 bg-[#131314]/50 border border-[#2d2f31]/70 p-3 rounded-xl flex flex-col gap-2.5">
-                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Register New Server</span>
-                        
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[9px] text-slate-400 font-bold uppercase">Logical Name</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Brave Search Endpoint"
-                            value={newMcpName}
-                            onChange={(e) => setNewMcpName(e.target.value)}
-                            className="bg-[#131314] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#9b72f3]/60 placeholder:text-slate-600"
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[9px] text-slate-400 font-bold uppercase">Transport Execution Command</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. npx -y @modelcontextprotocol/server-brave-search"
-                            value={newMcpCmd}
-                            onChange={(e) => setNewMcpCmd(e.target.value)}
-                            className="bg-[#131314] border border-[#3c4043] rounded-lg px-2.5 py-1.5 font-mono text-[10px] text-[#e3e3e3] focus:outline-none focus:border-[#9b72f3]/60 placeholder:text-slate-600"
-                          />
-                        </div>
-
-                        <button
-                          onClick={handleAddMcpServer}
-                          className="w-full bg-[#9b72f3]/20 hover:bg-[#9b72f3]/35 text-[#c1aefe] border border-[#9b72f3]/40 font-bold py-2 rounded-lg cursor-pointer duration-200 transition-all text-xs flex items-center justify-center gap-1.5"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Bind MCP Server
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Category 4: Platform Skills Integration (Workspace integration & security rules) */}
-                  <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-4 flex flex-col gap-4 shadow-sm hover:border-[#2d2f31]/100 transition-all">
-                    <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs">
-                          <Layers className="w-4 h-4 text-amber-400" /> Platform Active Skills Hub
+                      {response ? (
+                        <span className="text-[10px] bg-emerald-950/40 text-emerald-400 border border-emerald-900/40 px-2.5 py-0.5 rounded-full font-mono font-semibold">
+                          ACTIVE SESSION
                         </span>
-                        <span className="text-[10px] text-slate-500">Enable deep contextual capabilities designed to load on-demand in scraping workflows</span>
-                      </div>
-                      <span className="text-[9px] bg-amber-950/40 text-amber-400 px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-900/30">
-                        {skillsList.filter((s) => s.enabled).length} Enabled
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1 text-xs">
-                      {skillsList.map((skill) => (
-                        <div
-                          key={skill.id}
-                          onClick={() => handleToggleSkill(skill.id)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                            skill.enabled
-                              ? "bg-amber-950/10 border-amber-500/40 hover:border-amber-500/60"
-                              : "bg-[#131314]/80 border-[#2d2f31] hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="pt-0.5">
-                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                              skill.enabled ? "border-amber-400 bg-amber-400 text-slate-950" : "border-slate-500"
-                            }`}>
-                              {skill.enabled && <span className="text-[9px] font-bold">✓</span>}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[#f0f4f9]">{skill.name}</span>
-                              <span className="text-[8px] uppercase tracking-wide bg-[#2d2f31] px-1.5 py-0.5 rounded-md text-slate-400 font-bold">{skill.category}</span>
-                            </div>
-                            <span className="block text-[10px] text-[#8e918f] mt-1 line-clamp-2 leading-relaxed">{skill.description}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Category 5: Stealth Plugins Hub */}
-                  <div className="bg-[#1e1f20] border border-[#2d2f31]/80 rounded-2xl p-4 flex flex-col gap-4 shadow-sm hover:border-[#2d2f31]/100 transition-all">
-                    <div className="flex justify-between items-center border-b border-[#2d2f31]/50 pb-2">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-[#f0f4f9] flex items-center gap-1.5 text-xs">
-                          <Check className="w-4 h-4 text-[#34a853]" /> System Scraper Plugins
+                      ) : (
+                        <span className="text-[10px] bg-slate-900 text-slate-500 px-2.5 py-0.5 rounded-full font-mono">
+                          IDLE
                         </span>
-                        <span className="text-[10px] text-[#8e918f]">Inject additional automation interceptors, DOM decoders, and bypass modules</span>
-                      </div>
-                      <span className="text-[9px] bg-emerald-950/40 text-emerald-450 px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-900/30">
-                        {pluginsList.filter((p) => p.enabled).length} Active
-                      </span>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1 text-xs">
-                      {pluginsList.map((plugin) => (
-                        <div
-                          key={plugin.id}
-                          onClick={() => handleTogglePlugin(plugin.id)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                            plugin.enabled
-                              ? "bg-emerald-950/10 border-emerald-800/40 hover:border-emerald-800/60"
-                              : "bg-[#131314]/80 border-[#2d2f31] hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="pt-0.5">
-                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                              plugin.enabled ? "border-emerald-450 bg-emerald-450 text-slate-950" : "border-slate-500"
-                            }`}>
-                              {plugin.enabled && <span className="text-[9px] font-bold">✓</span>}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <span className="font-bold text-[#f0f4f9] block">{plugin.name}</span>
-                            <span className="block text-[10px] text-[#8e918f] mt-1 leading-normal">{plugin.description}</span>
-                          </div>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          Active User-Agent Signature Spoofed
+                        </span>
+                        <div className="bg-[#131314] p-3.5 rounded-xl border border-[#2d2f31] text-xs font-mono text-[#9b72f3] select-all leading-normal break-all">
+                          {response ? response.metadata.userAgent : "No sandbox session initiated. Run a fetch to verify active fingerprints."}
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          Response HTTP Headers
+                        </span>
+                        <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-xl overflow-hidden overflow-y-auto max-h-[300px] shadow-sm">
+                          {!response ? (
+                            <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                              No scrape response headers parsed yet. Run a fetch above to view live headers.
+                            </div>
+                          ) : (
+                            <table className="w-full text-left font-mono text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-[#18191b] border-b border-[#2d2f31]/80">
+                                  <th className="p-3 font-semibold text-[10px] uppercase text-slate-400 text-left">Header Key</th>
+                                  <th className="p-3 font-semibold text-[10px] uppercase text-slate-400 text-left">Value (Parsed)</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#2d2f31]/30">
+                                {Object.entries(response.headers).map(([key, val]) => (
+                                  <tr key={key} className="hover:bg-[#1e1f20]/45">
+                                    <td className="p-3 text-emerald-400 font-semibold select-all font-mono truncate max-w-[200px]">
+                                      {key}
+                                    </td>
+                                    <td className="p-3 text-[#e3e3e3] select-all font-mono whitespace-pre-wrap break-all leading-relaxed">
+                                      {val}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                 </div>
-              )}
+              </div>
+            )}
             </div>
           </div>
         </section>
-      )}
-      </main>
+      </div>
+    </main>
 
-      {/* Footer layout */}
-      <footer className="bg-[#0e0e11] border-t border-[#2d2f31]/80 py-6 px-6 shrink-0 mt-12">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#8e918f] font-mono">
-          <div className="flex items-center gap-1.5 justify-center md:justify-start">
-            <Shield className="w-3.5 h-3.5 text-[#4285f4]" />
-            <span>Virtual Sandbox Agent Powered By Antigravity Core 2026</span>
-          </div>
-          <div className="flex items-center gap-4 justify-center">
-            <span>Security Rule: Safe Guard active</span>
-            <span>•</span>
-            <a href="https://github.com/scrapling/scrapling" target="_blank" rel="noreferrer" className="text-[#4285f4] hover:text-[#9b72f3] hover:underline flex items-center gap-1 transition-all">
-              Github Spec <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+      {/* Compact Status Ribbon/Footer */}
+      <footer className="bg-[#101114] border-t border-[#2d2f31]/80 py-2.5 px-6 flex items-center justify-between flex-shrink-0 text-[10px] text-[#8e918f] font-mono select-none z-40">
+        <div className="flex items-center gap-1.5 font-sans">
+          <Shield className="w-3.5 h-3.5 text-[rgb(52,168,83)]" />
+          <span>Active Sandbox Shield: Spoof Fingerprints Active</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span>Workers: {concurrentWorkers} threads</span>
+          <span>•</span>
+          <a href="https://github.com/scrapling/scrapling" target="_blank" rel="noreferrer" className="text-[#4285f4] hover:text-[#9b72f3] hover:underline flex items-center gap-1 transition-all">
+            Github SDK Spec <ExternalLink className="w-2.5 h-2.5" />
+          </a>
         </div>
       </footer>
     </div>
