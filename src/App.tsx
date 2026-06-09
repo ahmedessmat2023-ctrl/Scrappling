@@ -86,6 +86,7 @@ export default function App() {
   const [highlightColor, setHighlightColor] = useState<string>("#9b72f3");
   const [highlightWidth, setHighlightWidth] = useState<number>(3);
   const [testMatches, setTestMatches] = useState<{ html: string; text: string }[]>([]);
+  const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [scrapedSearchQuery, setScrapedSearchQuery] = useState("");
   const [scrapedViewMode, setScrapedViewMode] = useState<"raw" | "list" | "card" | "visualizer">("list");
   const [frameWidth, setFrameWidth] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -470,6 +471,7 @@ export default function App() {
   useEffect(() => {
     if (!response || !response.rawHtml) {
       setTestMatches([]);
+      setSelectedMatchIndex(null);
       return;
     }
 
@@ -480,6 +482,7 @@ export default function App() {
 
       if (!selector) {
         setTestMatches([]);
+        setSelectedMatchIndex(null);
         return;
       }
 
@@ -494,10 +497,44 @@ export default function App() {
         }
       });
       setTestMatches(matchesList);
+      setSelectedMatchIndex(null);
     } catch (e) {
       // Ignored for temporary invalid selectors during user input
     }
   }, [testQuery, response]);
+
+  const handleSelectMatch = (originalIndex: number) => {
+    setSelectedMatchIndex(originalIndex);
+
+    try {
+      const iframe = document.getElementById("dom-visualizer-iframe") as HTMLIFrameElement | null;
+      if (iframe && iframe.contentDocument) {
+        const doc = iframe.contentDocument;
+        const selector = testQuery.trim();
+        if (selector) {
+          const elements = doc.querySelectorAll(selector);
+          const targetEl = elements[originalIndex] as HTMLElement | undefined;
+          
+          if (targetEl) {
+            // Scroll smoothly into center view
+            targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            // Remove previous indicators
+            doc.querySelectorAll(".scrapling-selected-flicker").forEach(el => {
+              el.classList.remove("scrapling-selected-flicker");
+            });
+
+            // Trigger reflow and add animation class
+            targetEl.classList.remove("scrapling-selected-flicker");
+            void targetEl.offsetWidth; // trigger reflow
+            targetEl.classList.add("scrapling-selected-flicker");
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not scroll iframe element into view or trigger flicker:", err);
+    }
+  };
 
   // Execute Scrape triggered from initial render
   useEffect(() => {
@@ -2197,6 +2234,11 @@ We built a weighted preference model based on your database structure:
                                         <iframe
                                           id="dom-visualizer-iframe"
                                           srcDoc={getVisualizerSrcDoc(response.rawHtml, response.url, testQuery, enableHighlight, highlightColor, highlightWidth)}
+                                          onLoad={() => {
+                                            if (selectedMatchIndex !== null) {
+                                              setTimeout(() => handleSelectMatch(selectedMatchIndex), 100);
+                                            }
+                                          }}
                                           sandbox="allow-same-origin"
                                           referrerPolicy="no-referrer"
                                           className="w-full h-full border-0 select-text bg-white"
@@ -2250,93 +2292,132 @@ We built a weighted preference model based on your database structure:
                             ) : scrapedViewMode === "card" ? (
                               /* Node Card Grid View */
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {filteredMatches.map((m, index) => (
-                                  <div key={index} className="bg-[#111112]/90 hover:bg-[#1e1f20]/80 border border-[#2d2f31]/80 hover:border-[#9b72f3]/45 rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 shadow-sm relative group overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-[#9b72f3] opacity-60"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex justify-between items-center mb-2.5">
-                                        <span className="bg-[#9b72f3]/15 text-[#a87ffb] text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider">
-                                          Match Row {index + 1}
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-mono">{m.text.length} chars</span>
-                                      </div>
-                                      <h4 className="text-xs font-bold text-slate-200 select-text leading-relaxed font-sans mb-3 text-ellipsis overflow-hidden">
-                                        "{m.text || <span className="italic text-slate-600">Pure attribute/structure node</span>}"
-                                      </h4>
-                                      
-                                      <details className="text-[10px] text-slate-400 bg-[#0e0e11] rounded-xl border border-[#2d2f31]/60 p-2 cursor-pointer transition-all select-all">
-                                        <summary className="font-mono text-[9px] text-slate-500 hover:text-[#9b72f3] list-none flex items-center gap-1 font-bold">
-                                          <ChevronRight className="w-3 h-3 transition-transform" />
-                                          INSPECT HTML NODE CODE
-                                        </summary>
-                                        <pre className="mt-2 text-[9px] leading-relaxed overflow-x-auto whitespace-pre-wrap font-mono text-[#9b72f3] select-all">
-                                          {m.html}
-                                        </pre>
-                                      </details>
-                                    </div>
-                                    <div className="flex items-center justify-between border-t border-[#2d2f31]/40 pt-3 mt-3">
-                                      {m.text && (
-                                        <button
-                                          onClick={() => {
-                                            setCampaignGoal(`Focus luxury seeding and pattern recognition match for: ${m.text.slice(0, 150)}`);
-                                            setActiveTab("influencer");
-                                          }}
-                                          className="text-[#34a853] hover:text-[#46c367] text-[10px] font-sans font-bold flex items-center gap-1 cursor-pointer transition-all"
-                                          title="Use this selector match to seed Campaign Context goals"
+                                {filteredMatches.map((m, index) => {
+                                  const originalIndex = testMatches.findIndex(item => item === m);
+                                  const isSelected = selectedMatchIndex === originalIndex;
+                                  return (
+                                    <div
+                                      key={index}
+                                      onClick={() => handleSelectMatch(originalIndex)}
+                                      className={`bg-[#111112]/90 hover:bg-[#1e1f20]/80 border rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 shadow-sm relative group overflow-hidden cursor-pointer ${
+                                        isSelected
+                                          ? "border-[#9b72f3] ring-1 ring-[#9b72f3]"
+                                          : "border-[#2d2f31]/80 hover:border-[#9b72f3]/45"
+                                      }`}
+                                    >
+                                      <div className={`absolute top-0 left-0 w-1 h-full bg-[#9b72f3] ${isSelected ? "opacity-100 scale-y-110" : "opacity-60"}`}></div>
+                                      <div className="flex-1 min-w-0 font-sans">
+                                        <div className="flex justify-between items-center mb-2.5">
+                                          <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider ${
+                                            isSelected ? "bg-[#9b72f3] text-white animate-pulse" : "bg-[#9b72f3]/15 text-[#a87ffb]"
+                                          }`}>
+                                            Match Row {index + 1}
+                                          </span>
+                                          <span className="text-[10px] text-slate-500 font-mono">{m.text.length} chars</span>
+                                        </div>
+                                        <h4 className="text-xs font-bold text-slate-200 select-text leading-relaxed font-sans mb-3 text-ellipsis overflow-hidden">
+                                          "{m.text || <span className="italic text-slate-600">Pure attribute/structure node</span>}"
+                                        </h4>
+                                        
+                                        <details
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="text-[10px] text-slate-400 bg-[#0e0e11] rounded-xl border border-[#2d2f31]/60 p-2 cursor-pointer transition-all select-all"
                                         >
-                                          <Plus className="w-3.5 h-3.5" />
-                                          <span>Feed Analyst</span>
+                                          <summary className="font-mono text-[9px] text-slate-500 hover:text-[#9b72f3] list-none flex items-center gap-1 font-bold">
+                                            <ChevronRight className="w-3 h-3 transition-transform" />
+                                            INSPECT HTML NODE CODE
+                                          </summary>
+                                          <pre className="mt-2 text-[9px] leading-relaxed overflow-x-auto whitespace-pre-wrap font-mono text-[#9b72f3] select-all">
+                                            {m.html}
+                                          </pre>
+                                        </details>
+                                      </div>
+                                      <div className="flex items-center justify-between border-t border-[#2d2f31]/40 pt-3 mt-3">
+                                        {m.text && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setCampaignGoal(`Focus luxury seeding and pattern recognition match for: ${m.text.slice(0, 150)}`);
+                                              setActiveTab("influencer");
+                                            }}
+                                            className="text-[#34a853] hover:text-[#46c367] text-[10px] font-sans font-bold flex items-center gap-1 cursor-pointer transition-all"
+                                            title="Use this selector match to seed Campaign Context goals"
+                                          >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            <span>Feed Analyst</span>
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(m.text);
+                                          }}
+                                          className="flex items-center gap-1.5 bg-[#0e0e11] hover:bg-[#1e1f20] border border-[#2d2f31] hover:border-[#9b72f3] text-slate-300 hover:text-[#9b72f3] px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                          <span>Copy text</span>
                                         </button>
-                                      )}
-                                      <button
-                                        onClick={() => navigator.clipboard.writeText(m.text)}
-                                        className="flex items-center gap-1.5 bg-[#0e0e11] hover:bg-[#1e1f20] border border-[#2d2f31] hover:border-[#9b72f3] text-slate-300 hover:text-[#9b72f3] px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer"
-                                      >
-                                        <Copy className="w-3 h-3" />
-                                        <span>Copy text</span>
-                                      </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             ) : (
                               /* Node List View */
                               <div className="divide-y divide-[#2d2f31]/50">
-                                {filteredMatches.map((m, index) => (
-                                  <div key={index} className="p-3.5 hover:bg-[#1e1f20]/50 transition-all flex items-start gap-3">
-                                    <span className="bg-[#4285f4]/15 text-[#4285f4] text-[10px] h-5 w-5 flex items-center justify-center rounded font-bold flex-shrink-0 mt-0.5">
-                                      {index + 1}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-[#9b72f3] font-semibold text-[11px] mb-1.5 flex items-center justify-between">
-                                        <span>Match node text: "{m.text}"</span>
-                                        <div className="flex items-center gap-3">
-                                          {m.text && (
+                                {filteredMatches.map((m, index) => {
+                                  const originalIndex = testMatches.findIndex(item => item === m);
+                                  const isSelected = selectedMatchIndex === originalIndex;
+                                  return (
+                                    <div
+                                      key={index}
+                                      onClick={() => handleSelectMatch(originalIndex)}
+                                      className={`p-3.5 hover:bg-[#1e1f20]/50 transition-all flex items-start gap-3 cursor-pointer relative group border-l-2 ${
+                                        isSelected
+                                          ? "bg-[#9b72f3]/10 border-[#9b72f3] pl-2.5"
+                                          : "border-transparent text-slate-300"
+                                      }`}
+                                    >
+                                      <span className={`text-[10px] h-5 w-5 flex items-center justify-center rounded font-bold flex-shrink-0 mt-0.5 ${
+                                        isSelected ? "bg-[#4285f4] text-white" : "bg-[#4285f4]/15 text-[#4285f4]"
+                                      }`}>
+                                        {index + 1}
+                                      </span>
+                                      <div className="flex-1 min-w-0 font-sans">
+                                        <div className="text-[#9b72f3] font-semibold text-[11px] mb-1.5 flex items-center justify-between">
+                                          <span>Match node text: "{m.text}"</span>
+                                          <div className="flex items-center gap-3">
+                                            {m.text && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setCampaignGoal(`Target analysis seeded by matching web node: ${m.text.slice(0, 150)}`);
+                                                  setActiveTab("influencer");
+                                                }}
+                                                className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                                                title="Feed this selected content block into the Influencer Insight cohort goal"
+                                              >
+                                                <Plus className="w-3 h-3" /> Seed Analyst
+                                              </button>
+                                            )}
                                             <button
-                                              onClick={() => {
-                                                setCampaignGoal(`Target analysis seeded by matching web node: ${m.text.slice(0, 150)}`);
-                                                setActiveTab("influencer");
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigator.clipboard.writeText(m.text);
                                               }}
-                                              className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
-                                              title="Feed this selected content block into the Influencer Insight cohort goal"
+                                              className="text-[10px] text-slate-500 hover:text-[#9b72f3] flex items-center gap-1 cursor-pointer"
                                             >
-                                              <Plus className="w-3 h-3" /> Seed Analyst
+                                              <Copy className="w-3 h-3" /> Copy Text
                                             </button>
-                                          )}
-                                          <button
-                                            onClick={() => navigator.clipboard.writeText(m.text)}
-                                            className="text-[10px] text-slate-500 hover:text-[#9b72f3] flex items-center gap-1 cursor-pointer"
-                                          >
-                                            <Copy className="w-3 h-3" /> Copy Text
-                                          </button>
+                                          </div>
                                         </div>
+                                        <pre className="text-[10px] text-slate-400 overflow-x-auto whitespace-pre-wrap bg-[#131314]/50 p-2.5 rounded-xl border border-[#2d2f31]/50 select-all font-mono">
+                                          {m.html}
+                                        </pre>
                                       </div>
-                                      <pre className="text-[10px] text-slate-400 overflow-x-auto whitespace-pre-wrap bg-[#131314]/50 p-2.5 rounded-xl border border-[#2d2f31]/50 select-all font-mono">
-                                        {m.html}
-                                      </pre>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

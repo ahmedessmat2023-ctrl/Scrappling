@@ -219,7 +219,7 @@ export const getVisualizerSrcDoc = (
         background-color: ${rgbaBackground} !important;
         box-shadow: 0 0 12px ${rgbaShadow} !important;
         position: relative !important;
-        transition: outline 0.15s ease-in-out, background-color 0.15s ease-in-out !important;
+        transition: outline 0.15s ease-in-out, background-color 0.15s ease-in-out, transform 0.15s ease-in-out !important;
         z-index: 10 !important;
       }
       /* Hover transition to brighter for focused visual check */
@@ -227,6 +227,47 @@ export const getVisualizerSrcDoc = (
         outline: ${borderWidth + 1}px solid ${borderColor} !important;
         background-color: ${hoverRgbaBackground} !important;
         box-shadow: 0 0 14px ${hoverRgbaShadow} !important;
+      }
+
+      @keyframes scrapling-flicker-anim {
+        0% {
+          outline-color: ${borderColor};
+          background-color: ${rgbaBackground};
+          box-shadow: 0 0 12px ${rgbaShadow};
+          transform: scale(1);
+        }
+        25% {
+          outline-color: #f59e0b;
+          background-color: rgba(245, 158, 11, 0.3) !important;
+          box-shadow: 0 0 24px rgba(245, 158, 11, 0.9) !important;
+          transform: scale(1.03);
+          outline-width: ${borderWidth + 2}px !important;
+        }
+        50% {
+          outline-color: ${borderColor};
+          background-color: ${rgbaBackground};
+          box-shadow: 0 0 12px ${rgbaShadow};
+          transform: scale(0.98);
+        }
+        75% {
+          outline-color: #f59e0b;
+          background-color: rgba(245, 158, 11, 0.3) !important;
+          box-shadow: 0 0 24px rgba(245, 158, 11, 0.9) !important;
+          transform: scale(1.02);
+          outline-width: ${borderWidth + 2}px !important;
+        }
+        100% {
+          outline-color: ${borderColor};
+          background-color: ${rgbaBackground};
+          box-shadow: 0 0 12px ${rgbaShadow};
+          transform: scale(1);
+        }
+      }
+
+      .scrapling-selected-flicker {
+        animation: scrapling-flicker-anim 0.8s cubic-bezier(0.25, 1, 0.5, 1) !important;
+        z-index: 1000 !important;
+        position: relative !important;
       }
     </style>
   ` : "";
