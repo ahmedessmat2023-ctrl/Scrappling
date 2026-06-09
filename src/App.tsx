@@ -31,7 +31,10 @@ import {
   Trash2,
   FileSpreadsheet,
   List,
-  LayoutGrid
+  LayoutGrid,
+  Monitor,
+  Smartphone,
+  Tablet
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -130,6 +133,77 @@ const PRESETS: PresetTemplate[] = [
   },
 ];
 
+// Dynamic source document modifier for DOM Visualizer iframe
+const getVisualizerSrcDoc = (rawHtml: string, baseUrl: string, selector: string) => {
+  if (!rawHtml) return "";
+
+  // Base URL tag to safely load relative assets/stylesheets/images from original server
+  const baseTag = baseUrl ? `<base href="${baseUrl}">` : "";
+
+  // High quality hover and highlight outline CSS definition
+  const highlightStyles = selector.trim() ? `
+    <style id="scrapling-highlighter">
+      /* High-contrast animated highlight on matched nodes */
+      ${selector.trim()} {
+        outline: 3px solid #f59e0b !important;
+        outline-offset: 1px !important;
+        background-color: rgba(245, 158, 11, 0.22) !important;
+        box-shadow: 0 0 14px rgba(245, 158, 11, 0.45) !important;
+        position: relative !important;
+        transition: outline 0.15s ease-in-out, background-color 0.15s ease-in-out !important;
+        z-index: 10 !important;
+      }
+      /* Hover transition to green for focused visual check */
+      ${selector.trim()}:hover {
+        outline: 3px solid #10b981 !important;
+        background-color: rgba(16, 185, 129, 0.28) !important;
+        box-shadow: 0 0 18px rgba(16, 185, 129, 0.55) !important;
+      }
+    </style>
+  ` : "";
+
+  const commonEmbedStyles = `
+    <style>
+      /* Smooth high precision scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  `;
+
+  let processed = rawHtml;
+
+  // Let's remove conflicting base tag if already defined on target site
+  processed = processed.replace(/<base\b[^>]*>/gi, "");
+
+  const fullInjection = baseTag + commonEmbedStyles + highlightStyles;
+
+  // Prepend inside Head tag
+  if (processed.includes("</head>")) {
+    processed = processed.replace("</head>", `${fullInjection}</head>`);
+  } else if (processed.includes("<head>")) {
+    processed = processed.replace("<head>", `<head>${fullInjection}`);
+  } else {
+    processed = fullInjection + processed;
+  }
+
+  return processed;
+};
+
 export default function App() {
   // Input parameters state
   const [url, setUrl] = useState("https://github.com/scrapling/scrapling");
@@ -162,10 +236,15 @@ export default function App() {
   const [testQuery, setTestQuery] = useState("");
   const [testMatches, setTestMatches] = useState<{ html: string; text: string }[]>([]);
   const [scrapedSearchQuery, setScrapedSearchQuery] = useState("");
-  const [scrapedViewMode, setScrapedViewMode] = useState<"list" | "card">("list");
+  const [scrapedViewMode, setScrapedViewMode] = useState<"raw" | "list" | "card" | "visualizer">("list");
+  const [frameWidth, setFrameWidth] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
   // Workspace Tabs
   const [activeTab, setActiveTab] = useState<"response" | "code" | "ai" | "http" | "influencer" | "settings">("response");
+
+  // Collapsible panel states for Left Column (Crawl Form builder)
+  const [isFingerprintsCollapsed, setIsFingerprintsCollapsed] = useState(false);
+  const [isHeadersCookiesCollapsed, setIsHeadersCookiesCollapsed] = useState(true);
 
   // Premium Custom Settings States
   const [selectedAiModel, setSelectedAiModel] = useState<string>("gemini-3.5-flash");
@@ -1139,9 +1218,58 @@ We built a weighted preference model based on your database structure:
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: Request Builder Form */}
-        <section className="lg:col-span-5 flex flex-col gap-5">
+      {/* Master Workspace Navigation Tabs */}
+      <div className="bg-[#131314] border-b border-[#2d2f31]/85 sticky top-[72px] z-40 bg-opacity-95 backdrop-blur-md shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 pt-3 flex flex-wrap gap-1.5 justify-start md:justify-between items-center">
+          <div className="flex flex-wrap gap-1">
+            {[
+              { id: "response", label: "Scraped Sandbox", icon: Eye, description: "Selector match & live DOM view" },
+              { id: "code", label: "Scrapling Script", icon: FileCode, description: "Python crawler output script" },
+              { id: "ai", label: "Gemini Assistant", icon: Sparkles, description: "Intelligent element parse chat" },
+              { id: "http", label: "HTTP Metadata", icon: Terminal, description: "Spoofed packet transaction traces" },
+              { id: "influencer", label: "Influencer AI Analyst", icon: Users, description: "Social entity profiling & exports" },
+              { id: "settings", label: "Advanced Dev Configs", icon: Settings, description: "Proxies, MCP registry & configs" },
+            ].map((tab) => {
+              const TabIcon = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`global-tab-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex flex-col gap-0.5 px-4.5 py-3 text-left transition-all duration-150 relative cursor-pointer border-t-2 border-transparent select-none min-w-[130px] md:min-w-[155px] ${
+                    isSelected
+                      ? "bg-[#0e0e11] text-[#f0f4f9] border-t-[#9b72f3]"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-[#1e1f20]/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <TabIcon className={`w-3.5 h-3.5 ${isSelected ? "text-[#9b72f3]" : "text-slate-500"}`} />
+                    <span className="text-xs font-bold tracking-tight">{tab.label}</span>
+                  </div>
+                  <span className="text-[9px] text-[#8e918f] font-mono leading-none truncate max-w-[140px] md:max-w-[160px]">{tab.description}</span>
+                </button>
+              );
+            })}
+          </div>
+          {response && (
+            <div className="hidden lg:flex items-center gap-3 bg-[#1e1f20] border border-[#2d2f31]/60 px-3 py-1 rounded-xl text-[10px] font-mono text-slate-400 mr-2">
+              <span className="flex h-1.5 w-1.5 relative animate-none">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span>Loaded: <strong className="text-slate-200">{(response.metadata.sizeBytes / 1024).toFixed(1)} KB</strong></span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6">
+        {/* Render active workspace layouts dynamically based on selected option */}
+        {activeTab === "response" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+            {/* LEFT COLUMN: Request Builder Form */}
+            <section className="lg:col-span-5 flex flex-col gap-5">
           {/* Target URL Input Panel */}
           <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -1184,225 +1312,271 @@ We built a weighted preference model based on your database structure:
 
           {/* Configuration Parameters accordion-like panel */}
           <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
-            <div className="flex items-center gap-2 border-b border-[#2d2f31]/50 pb-3">
-              <Sliders className="w-4 h-4 text-[#9b72f3]" />
-              <h3 className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display">Fingerprint & Scraper Config</h3>
-            </div>
-
-            {/* Impersonation signature select */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <label htmlFor="impersonate" className="text-xs font-medium text-slate-300">
-                  Browser Fingerprint Impersonation:
-                </label>
-                <span className="text-[10px] text-slate-500 font-mono">TLS & Header spoofing</span>
+            <button
+              onClick={() => setIsFingerprintsCollapsed(!isFingerprintsCollapsed)}
+              className="flex items-center justify-between w-full border-b border-[#2d2f31]/50 pb-3 text-left focus:outline-none group cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#9b72f3]" />
+                <h3 className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display group-hover:text-[#9b72f3] transition-colors">
+                  Fingerprint & Scraper Config
+                </h3>
               </div>
-              <div className="relative">
-                <select
-                  id="impersonate"
-                  value={impersonate}
-                  onChange={(e) => setImpersonate(e.target.value as any)}
-                  className="w-full bg-[#1e1f20] border border-[#3c4043] focus:border-[#9b72f3] text-[#e3e3e3] rounded-2xl px-4 py-2.5 text-sm focus:outline-none transition-all font-mono appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b0b3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%20%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.85rem_center] bg-no-repeat pr-11 hover:border-[#9b72f3]/50 hover:bg-[#25272a] cursor-pointer duration-200"
-                >
-                  <option value="chrome">Chrome 122 (Desktop Standard)</option>
-                  <option value="firefox">Firefox 123 (Open-source Standard)</option>
-                  <option value="safari">Safari 17 Mac OS (Webkit Forge)</option>
-                  <option value="edge">Edge 122 Enterprise (Chromium Build)</option>
-                  <option value="safari_ios">Safari IOS (iPhone Active Mobile)</option>
-                </select>
-              </div>
-            </div>
+              <span className="text-purple-400 group-hover:text-purple-300 font-mono text-xs">
+                {isFingerprintsCollapsed ? "Expand [ + ]" : "Collapse [ − ]"}
+              </span>
+            </button>
 
-            {/* Extraction Type choice */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col gap-1 col-span-3">
-                <span className="text-xs font-medium text-slate-300">Extraction Content Pipeline:</span>
+            {isFingerprintsCollapsed ? (
+              <div className="text-[11px] text-slate-400 font-mono flex flex-wrap gap-x-2.5 gap-y-1 bg-[#0e0e11] p-3 rounded-2xl border border-[#2d2f31]/60">
+                <span className="text-[#4285f4]">🎭 {impersonate}</span>
+                <span className="text-slate-700 font-bold">•</span>
+                <span className="text-emerald-400 uppercase font-semibold">{extractionType}</span>
+                <span className="text-slate-700 font-bold">•</span>
+                <span className="text-purple-400">Timeout: {timeout}s</span>
+                {cssSelector && (
+                  <>
+                    <span className="text-slate-700 font-bold">•</span>
+                    <span className="text-[#f59e0b] truncate max-w-[130px]" title={cssSelector}>css: {cssSelector}</span>
+                  </>
+                )}
               </div>
-              {["markdown", "html", "text"].map((type) => (
-                <button
-                  key={type}
-                  id={`extract-type-${type}`}
-                  onClick={() => setExtractionType(type as any)}
-                  className={`py-2.5 px-3 text-xs font-bold rounded-2xl border capitalize transition-all duration-200 ${
-                    extractionType === type
-                      ? "bg-[#9b72f3]/10 border-[#9b72f3] text-[#c5aaff] shadow-[0_0_12px_rgba(155,114,243,0.15)]"
-                      : "bg-[#1e1f20] border-[#3c4043]/85 text-[#8e918f] hover:text-[#f0f4f9] hover:bg-[#25272a] hover:border-[#9b72f3]/40"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            {/* CSS Selector state input */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <label htmlFor="css-selector" className="text-xs font-medium text-slate-300">
-                  Primary Scrape Selector (Optional):
-                </label>
-                <span className="text-[10px] text-[#9b72f3] font-mono">Real-time match</span>
-              </div>
-              <input
-                id="css-selector"
-                type="text"
-                value={cssSelector}
-                onChange={(e) => {
-                  setCssSelector(e.target.value);
-                  setTestQuery(e.target.value);
-                }}
-                placeholder="e.g. div.product-card, a.storylink"
-                className="w-full bg-[#1e1f20] border border-[#3c4043] focus:border-[#9b72f3] text-[#f0f4f9] rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none transition-all placeholder-slate-600"
-              />
-            </div>
-
-            {/* Advanced configurations */}
-            <div className="border-t border-[#2d2f31]/50 pt-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <label htmlFor="main-content-checkbox" className="text-xs text-slate-300 cursor-pointer select-none">
-                  Core Document Only (Strip noise tags - nav, footer)
-                </label>
-                <input
-                  id="main-content-checkbox"
-                  type="checkbox"
-                  checked={mainContentOnly}
-                  onChange={(e) => setMainContentOnly(e.target.checked)}
-                  className="w-4 h-4 accent-[#9b72f3] rounded border-slate-700 bg-[#1e1f20]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-1.5">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="timeout-input" className="text-[11px] text-slate-400">Timeout (Seconds)</label>
-                  <input
-                    id="timeout-input"
-                    type="number"
-                    min="5"
-                    max="120"
-                    value={timeout}
-                    onChange={(e) => setTimeoutVal(parseInt(e.target.value) || 30)}
-                    className="w-full bg-[#1e1f20] border border-[#3c4043] text-[#e3e3e3] rounded-xl px-2.5 py-1.5 text-xs font-mono"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] text-slate-400">Redirects Handler</span>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {/* Impersonation signature select */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="impersonate" className="text-xs font-medium text-slate-300">
+                      Browser Fingerprint Impersonation:
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-mono">TLS & Header spoofing</span>
+                  </div>
                   <div className="relative">
                     <select
-                      id="redirect-handler"
-                      value={followRedirects ? "safe" : "none"}
-                      onChange={(e) => setFollowRedirects(e.target.value === "safe" ? "safe" : false)}
-                      className="w-full bg-[#1e1f20] border border-[#3c4043] text-[#e3e3e3] rounded-xl px-3 py-2 text-xs font-mono focus:outline-none appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b0b3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%20%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1rem_1rem] bg-[right_0.6rem_center] bg-no-repeat pr-8 hover:border-[#9b72f3]/50 hover:bg-[#25272a] cursor-pointer transition-all duration-200"
+                      id="impersonate"
+                      value={impersonate}
+                      onChange={(e) => setImpersonate(e.target.value as any)}
+                      className="w-full bg-[#1e1f20] border border-[#3c4043] focus:border-[#9b72f3] text-[#e3e3e3] rounded-2xl px-4 py-2.5 text-sm focus:outline-none transition-all font-mono appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b0b3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%20%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.85rem_center] bg-no-repeat pr-11 hover:border-[#9b72f3]/50 hover:bg-[#25272a] cursor-pointer duration-200"
                     >
-                      <option value="safe">SSRF Blocked (Safe)</option>
-                      <option value="none">Disabled (No-Follow)</option>
+                      <option value="chrome">Chrome 122 (Desktop Standard)</option>
+                      <option value="firefox">Firefox 123 (Open-source Standard)</option>
+                      <option value="safari">Safari 17 Mac OS (Webkit Forge)</option>
+                      <option value="edge">Edge 122 Enterprise (Chromium Build)</option>
+                      <option value="safari_ios">Safari IOS (iPhone Active Mobile)</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Extraction Type choice */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex flex-col gap-1 col-span-3">
+                    <span className="text-xs font-medium text-slate-300">Extraction Content Pipeline:</span>
+                  </div>
+                  {["markdown", "html", "text"].map((type) => (
+                    <button
+                      key={type}
+                      id={`extract-type-${type}`}
+                      onClick={() => setExtractionType(type as any)}
+                      className={`py-2.5 px-3 text-xs font-bold rounded-2xl border capitalize transition-all duration-200 ${
+                        extractionType === type
+                          ? "bg-[#9b72f3]/10 border-[#9b72f3] text-[#c5aaff] shadow-[0_0_12px_rgba(155,114,243,0.15)]"
+                          : "bg-[#1e1f20] border-[#3c4043]/85 text-[#8e918f] hover:text-[#f0f4f9] hover:bg-[#25272a] hover:border-[#9b72f3]/40"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+
+                {/* CSS Selector state input */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="css-selector" className="text-xs font-medium text-slate-300">
+                      Primary Scrape Selector (Optional):
+                    </label>
+                    <span className="text-[10px] text-[#9b72f3] font-mono">Real-time match</span>
+                  </div>
+                  <input
+                    id="css-selector"
+                    type="text"
+                    value={cssSelector}
+                    onChange={(e) => {
+                      setCssSelector(e.target.value);
+                      setTestQuery(e.target.value);
+                    }}
+                    placeholder="e.g. div.product-card, a.storylink"
+                    className="w-full bg-[#1e1f20] border border-[#3c4043] focus:border-[#9b72f3] text-[#f0f4f9] rounded-2xl px-3.5 py-2.5 text-sm font-mono focus:outline-none transition-all placeholder-slate-600"
+                  />
+                </div>
+
+                {/* Advanced configurations */}
+                <div className="border-t border-[#2d2f31]/50 pt-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="main-content-checkbox" className="text-xs text-slate-300 cursor-pointer select-none">
+                      Core Document Only (Strip noise tags - nav, footer)
+                    </label>
+                    <input
+                      id="main-content-checkbox"
+                      type="checkbox"
+                      checked={mainContentOnly}
+                      onChange={(e) => setMainContentOnly(e.target.checked)}
+                      className="w-4 h-4 accent-[#9b72f3] rounded border-slate-700 bg-[#1e1f20]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-1.5">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="timeout-input" className="text-[11px] text-slate-400">Timeout (Seconds)</label>
+                      <input
+                        id="timeout-input"
+                        type="number"
+                        min="5"
+                        max="120"
+                        value={timeout}
+                        onChange={(e) => setTimeoutVal(parseInt(e.target.value) || 30)}
+                        className="w-full bg-[#1e1f20] border border-[#3c4043] text-[#e3e3e3] rounded-xl px-2.5 py-1.5 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] text-slate-400">Redirects Handler</span>
+                      <div className="relative">
+                        <select
+                          id="redirect-handler"
+                          value={followRedirects ? "safe" : "none"}
+                          onChange={(e) => setFollowRedirects(e.target.value === "safe" ? "safe" : false)}
+                          className="w-full bg-[#1e1f20] border border-[#3c4043] text-[#e3e3e3] rounded-xl px-3 py-2 text-xs font-mono focus:outline-none appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23b0b3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%20%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1rem_1rem] bg-[right_0.6rem_center] bg-no-repeat pr-8 hover:border-[#9b72f3]/50 hover:bg-[#25272a] cursor-pointer transition-all duration-200"
+                        >
+                          <option value="safe">SSRF Blocked (Safe)</option>
+                          <option value="none">Disabled (No-Follow)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* headers and cookies payload dynamic list */}
           <div className="bg-[#131314] border border-[#2d2f31]/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-[#2d2f31]/50 pb-3">
+            <button
+              onClick={() => setIsHeadersCookiesCollapsed(!isHeadersCookiesCollapsed)}
+              className="flex items-center justify-between w-full border-b border-[#2d2f31]/50 pb-3 text-left focus:outline-none group cursor-pointer"
+            >
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#9b72f3]" />
-                <h3 className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display">Custom Header & Cookies</h3>
+                <h3 className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display group-hover:text-[#9b72f3] transition-colors">
+                  Custom Headers & Cookies
+                </h3>
               </div>
-            </div>
+              <span className="text-purple-400 group-hover:text-purple-300 font-mono text-xs">
+                {isHeadersCookiesCollapsed ? "Expand [ + ]" : "Collapse [ − ]"}
+              </span>
+            </button>
 
-            {/* Custom Headers */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-[#8e918f]">Headers Injection ({Object.keys(headers).length})</span>
-              <div className="max-h-[140px] overflow-y-auto flex flex-col gap-1.5 bg-[#18191b] p-2.5 rounded-2xl border border-[#2d2f31]/50">
-                {Object.keys(headers).length === 0 ? (
-                  <div className="text-[11px] text-[#8e918f]/50 text-center py-4">No custom headers loaded.</div>
-                ) : (
-                  Object.entries(headers).map(([key, val]) => (
-                    <div key={key} className="flex justify-between items-center bg-[#131314] px-2.5 py-1.5 rounded-xl border border-[#2d2f31] text-xs font-mono">
-                      <span className="text-[#4285f4] max-w-[120px] truncate">{key}:</span>
-                      <div className="flex items-center gap-2 max-w-[150px]">
-                        <span className="text-slate-300 truncate">{val}</span>
-                        <button
-                          onClick={() => handleRemoveHeader(key)}
-                          className="text-red-400 hover:text-red-300 px-1 hover:bg-[#1e1f20] rounded font-bold"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+            {isHeadersCookiesCollapsed ? (
+              <div className="text-[11px] text-slate-400 font-mono flex flex-wrap gap-x-2.5 gap-y-1 bg-[#0e0e11] p-3 rounded-2xl border border-[#2d2f31]/60">
+                <span className="text-[#4285f4]">📥 {Object.keys(headers).length} Headers injected</span>
+                <span className="text-slate-700 font-bold">•</span>
+                <span className="text-[#9b72f3]">🍪 {Object.keys(cookies).length} Active cookies</span>
               </div>
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  placeholder="Key"
-                  value={newHeaderKey}
-                  onChange={(e) => setNewHeaderKey(e.target.value)}
-                  className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-600 focus:outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Value"
-                  value={newHeaderVal}
-                  onChange={(e) => setNewHeaderVal(e.target.value)}
-                  className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-600 focus:outline-none"
-                />
-                <button
-                  onClick={handleAddHeader}
-                  className="bg-[#1e1f20] hover:bg-[#25272a] hover:text-[#9b72f3] hover:border-[#9b72f3] text-slate-300 font-mono px-3.5 py-2.5 text-xs rounded-xl cursor-pointer border border-[#3c4043] font-bold transition-all duration-200"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {/* Custom Headers */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold text-[#8e918f]">Headers Injection ({Object.keys(headers).length})</span>
+                  <div className="max-h-[140px] overflow-y-auto flex flex-col gap-1.5 bg-[#18191b] p-2.5 rounded-2xl border border-[#2d2f31]/50">
+                    {Object.keys(headers).length === 0 ? (
+                      <div className="text-[11px] text-[#8e918f]/50 text-center py-4">No custom headers loaded.</div>
+                    ) : (
+                      Object.entries(headers).map(([key, val]) => (
+                        <div key={key} className="flex justify-between items-center bg-[#131314] px-2.5 py-1.5 rounded-xl border border-[#2d2f31] text-xs font-mono">
+                          <span className="text-[#4285f4] max-w-[120px] truncate">{key}:</span>
+                          <div className="flex items-center gap-2 max-w-[150px]">
+                            <span className="text-slate-300 truncate">{val}</span>
+                            <button
+                              onClick={() => handleRemoveHeader(key)}
+                              className="text-red-400 hover:text-red-300 px-1 hover:bg-[#1e1f20] rounded font-bold cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Key"
+                      value={newHeaderKey}
+                      onChange={(e) => setNewHeaderKey(e.target.value)}
+                      className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-650 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Value"
+                      value={newHeaderVal}
+                      onChange={(e) => setNewHeaderVal(e.target.value)}
+                      className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-650 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleAddHeader}
+                      className="bg-[#1e1f20] hover:bg-[#25272a] hover:text-[#9b72f3] hover:border-[#9b72f3] text-slate-300 font-mono px-3.5 py-2.5 text-xs rounded-xl cursor-pointer border border-[#3c4043] font-bold transition-all duration-200"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-            {/* Custom Cookies */}
-            <div className="flex flex-col gap-2 mt-2">
-              <span className="text-xs font-semibold text-[#8e918f]">Cookie Contexts ({Object.keys(cookies).length})</span>
-              <div className="max-h-[140px] overflow-y-auto flex flex-col gap-1.5 bg-[#18191b] p-2.5 rounded-2xl border border-[#2d2f31]/50">
-                {Object.keys(cookies).length === 0 ? (
-                  <div className="text-[11px] text-[#8e918f]/50 text-center py-4">No custom session cookies defined.</div>
-                ) : (
-                  Object.entries(cookies).map(([key, val]) => (
-                    <div key={key} className="flex justify-between items-center bg-[#131314] px-2.5 py-1.5 rounded-xl border border-[#2d2f31] text-xs font-mono">
-                      <span className="text-[#9b72f3] max-w-[125px] truncate">{key}=</span>
-                      <div className="flex items-center gap-2 max-w-[150px]">
-                        <span className="text-slate-300 truncate">{val}</span>
-                        <button
-                          onClick={() => handleRemoveCookie(key)}
-                          className="text-red-400 hover:text-red-300 px-1 hover:bg-[#1e1f20] rounded font-bold"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                {/* Custom Cookies */}
+                <div className="flex flex-col gap-2 mt-2">
+                  <span className="text-xs font-semibold text-[#8e918f]">Cookie Contexts ({Object.keys(cookies).length})</span>
+                  <div className="max-h-[140px] overflow-y-auto flex flex-col gap-1.5 bg-[#18191b] p-2.5 rounded-2xl border border-[#2d2f31]/50">
+                    {Object.keys(cookies).length === 0 ? (
+                      <div className="text-[11px] text-[#8e918f]/50 text-center py-4">No custom session cookies defined.</div>
+                    ) : (
+                      Object.entries(cookies).map(([key, val]) => (
+                        <div key={key} className="flex justify-between items-center bg-[#131314] px-2.5 py-1.5 rounded-xl border border-[#2d2f31] text-xs font-mono">
+                          <span className="text-[#9b72f3] max-w-[125px] truncate">{key}=</span>
+                          <div className="flex items-center gap-2 max-w-[150px]">
+                            <span className="text-slate-300 truncate">{val}</span>
+                            <button
+                              onClick={() => handleRemoveCookie(key)}
+                              className="text-red-400 hover:text-red-300 px-1 hover:bg-[#1e1f20] rounded font-bold cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Cookie key"
+                      value={newCookieKey}
+                      onChange={(e) => setNewCookieKey(e.target.value)}
+                      className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-650 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Value"
+                      value={newCookieVal}
+                      onChange={(e) => setNewCookieVal(e.target.value)}
+                      className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-650 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleAddCookie}
+                      className="bg-[#1e1f20] hover:bg-[#25272a] hover:text-[#9b72f3] hover:border-[#9b72f3] text-slate-300 font-mono px-3.5 py-2.5 text-xs rounded-xl cursor-pointer border border-[#3c4043] font-bold transition-all duration-200"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  placeholder="Cookie key"
-                  value={newCookieKey}
-                  onChange={(e) => setNewCookieKey(e.target.value)}
-                  className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-600 focus:outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Value"
-                  value={newCookieVal}
-                  onChange={(e) => setNewCookieVal(e.target.value)}
-                  className="w-1/2 bg-[#1e1f20] border border-[#3c4043] text-xs rounded-xl px-2.5 py-2.5 text-[#e3e3e3] placeholder-slate-600 focus:outline-none"
-                />
-                <button
-                  onClick={handleAddCookie}
-                  className="bg-[#1e1f20] hover:bg-[#25272a] hover:text-[#9b72f3] hover:border-[#9b72f3] text-slate-300 font-mono px-3.5 py-2.5 text-xs rounded-xl cursor-pointer border border-[#3c4043] font-bold transition-all duration-200"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </section>
 
@@ -1410,34 +1584,12 @@ We built a weighted preference model based on your database structure:
         <section className="lg:col-span-7 flex flex-col gap-5">
           {/* Main Workspace Frame tabs */}
           <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-3xl overflow-hidden shadow-sm flex-1 flex flex-col">
-            {/* Tab list */}
-            <div className="bg-[#131314] border-b border-[#2d2f31]/60 px-4 pt-4 flex flex-wrap gap-2">
-              {[
-                { id: "response", label: "Scraped Sandbox", icon: Eye, pillColor: "bg-[#4285f4]/10 text-[#4285f4] border-[#4285f4]/20" },
-                { id: "code", label: "Scrapling Script", icon: FileCode, pillColor: "bg-[#9b72f3]/10 text-[#9b72f3] border-[#9b72f3]/20" },
-                { id: "ai", label: "Gemini Selector Assistant", icon: Sparkles, pillColor: "bg-[#d9657b]/10 text-[#d9657b] border-[#d9657b]/20" },
-                { id: "http", label: "HTTP Metadata", icon: Terminal, pillColor: "bg-slate-500/10 text-slate-400 border-slate-500/20" },
-                { id: "influencer", label: "Influencer AI Analyst", icon: Users, pillColor: "bg-[#34a853]/10 text-[#34a853] border-[#34a853]/20" },
-                { id: "settings", label: "Advanced Dev Configs", icon: Settings, pillColor: "bg-[#f59e0b]/10 text-[#eab308] border-[#eab308]/20" },
-              ].map((tab) => {
-                const TabIcon = tab.icon;
-                const isSelected = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    id={`tab-${tab.id}`}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold rounded-t-xl tracking-tight transition-all duration-200 relative ${
-                      isSelected
-                        ? "bg-[#1e1f20] text-[#f0f4f9] border-t-2 border-[#9b72f3]"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-[#1e1f20]/40"
-                    }`}
-                  >
-                    <TabIcon className={`w-3.5 h-3.5 ${isSelected ? "text-[#9b72f3]" : "text-slate-400"}`} />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+            <div className="bg-[#18191b] border-b border-[#2d2f31]/60 px-5 py-3.5 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-xs font-bold text-[#e3e3e3] uppercase tracking-wider font-display">Target Document Sandbox Live DOM View</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Interactive CSS element matches</span>
             </div>
 
             {/* Error notifications */}
@@ -1596,6 +1748,19 @@ We built a weighted preference model based on your database structure:
                           <LayoutGrid className="w-3.5 h-3.5" />
                           <span>Card Grid</span>
                         </button>
+                        <button
+                          id="btn-view-visualizer"
+                          onClick={() => setScrapedViewMode("visualizer")}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150 ${
+                            scrapedViewMode === "visualizer"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/35"
+                              : "text-slate-400 hover:text-amber-400 border border-transparent"
+                          }`}
+                          title="Live interactive HTML Selector highlighting"
+                        >
+                          <Monitor className="w-3.5 h-3.5" />
+                          <span>DOM Visualizer</span>
+                        </button>
                       </div>
                     </div>
 
@@ -1687,7 +1852,7 @@ We built a weighted preference model based on your database structure:
                                   ))
                                 )}
                               </div>
-                            ) : (
+                            ) : scrapedViewMode === "card" ? (
                               /* Card Grid View */
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {filteredTextBlocks.length === 0 ? (
@@ -1720,6 +1885,124 @@ We built a weighted preference model based on your database structure:
                                     </div>
                                   ))
                                 )}
+                              </div>
+                            ) : (
+                              /* DOM Visualizer View */
+                              <div className="flex flex-col gap-4 bg-[#131314] border border-[#2d2f31]/80 rounded-2xl p-4 shadow-md">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#2d2f31]/60 pb-3.5 gap-3">
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                      <span className="font-bold text-[#f0f4f9] text-xs">HTML Document Render Sandbox</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 leading-normal">
+                                      Visually inspecting real-time CSS selector highlights & matching structures
+                                    </span>
+                                  </div>
+
+                                  {/* Responsive Frame Control */}
+                                  <div className="flex items-center bg-[#0e0e11] border border-[#2d2f31]/80 rounded-xl p-0.5 gap-0.5 self-stretch sm:self-auto justify-center">
+                                    <button
+                                      onClick={() => setFrameWidth("desktop")}
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-all ${
+                                        frameWidth === "desktop"
+                                          ? "bg-slate-800 text-slate-200 border border-slate-700/60"
+                                          : "text-slate-500 hover:text-slate-350"
+                                      }`}
+                                      title="Desktop Scale Layout"
+                                    >
+                                      <Monitor className="w-3 h-3" />
+                                      <span>Desktop</span>
+                                    </button>
+                                    <button
+                                      onClick={() => setFrameWidth("tablet")}
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-all ${
+                                        frameWidth === "tablet"
+                                          ? "bg-slate-800 text-slate-200 border border-slate-700/60"
+                                          : "text-slate-500 hover:text-slate-350"
+                                      }`}
+                                      title="Tablet Scale Preview (768px)"
+                                    >
+                                      <Tablet className="w-3 h-3" />
+                                      <span>Tablet</span>
+                                    </button>
+                                    <button
+                                      onClick={() => setFrameWidth("mobile")}
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-all ${
+                                        frameWidth === "mobile"
+                                          ? "bg-slate-800 text-slate-200 border border-slate-700/60"
+                                          : "text-slate-500 hover:text-slate-350"
+                                      }`}
+                                      title="Mobile Scale Preview (390px)"
+                                    >
+                                      <Smartphone className="w-3 h-3" />
+                                      <span>Mobile</span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Mock Web Browser Shell */}
+                                <div className="border border-[#2d2f31] rounded-xl overflow-hidden bg-[#0e0e11] flex flex-col shadow-2xl relative">
+                                  {/* Browser window top controls */}
+                                  <div className="bg-[#18191a] border-b border-[#2d2f31]/75 px-4 py-2.5 flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                                      <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                                      <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
+                                    </div>
+                                    
+                                    {/* Mock URL address bar */}
+                                    <div className="flex-1 bg-[#111112] text-[#8e918f] font-mono text-[10px] px-3.5 py-1.5 rounded-lg border border-[#2d2f31]/65 max-w-xl text-center truncate select-all flex items-center justify-center gap-1.5 select-text">
+                                      <span className="text-emerald-500">🔒</span>
+                                      <span className="text-slate-500">https://</span>
+                                      <span className="text-[#e3e3e3] font-sans font-medium">{response?.url || "scraped-protocol.internal"}</span>
+                                    </div>
+
+                                    {/* Matches counter badge */}
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold whitespace-nowrap">
+                                        {testQuery.trim() ? `${testMatches.length} matches` : "No Selector"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Dynamic Frame width styling inside mock viewport */}
+                                  <div className="w-full bg-[#080809] p-4 flex justify-center min-h-[460px] border-t border-[#131113]/30">
+                                    <div
+                                      className={`w-full transition-all duration-300 shadow-xl overflow-hidden rounded-lg bg-white ${
+                                        frameWidth === "desktop"
+                                          ? "max-w-full"
+                                          : frameWidth === "tablet"
+                                          ? "max-w-[768px]"
+                                          : "max-w-[390px]"
+                                      }`}
+                                      style={{ height: "460px" }}
+                                    >
+                                      {response?.rawHtml ? (
+                                        <iframe
+                                          id="dom-visualizer-iframe"
+                                          srcDoc={getVisualizerSrcDoc(response.rawHtml, response.url, testQuery)}
+                                          sandbox="allow-same-origin"
+                                          referrerPolicy="no-referrer"
+                                          className="w-full h-full border-0 select-text bg-white"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 bg-[#131314]">
+                                          <Terminal className="w-8 h-8 text-slate-600 mb-2" />
+                                          <span>No HTML structure recorded for this result context.</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Bottom guidelines panel */}
+                                <div className="bg-[#1e1f20]/40 border border-[#2d2f31]/60 p-3 rounded-xl flex items-start gap-2.5 text-[11px] text-[#8e918f] leading-normal font-sans">
+                                  <Info className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                  <p>
+                                    The DOM Visualizer processes the raw scraped response sandboxed, with scripts deactivated to prevent automatic redirection loops. It injects a <code className="text-[#f59e0b] font-mono">&lt;base&gt;</code> element pointing to the source directory to load relative style elements beautifully. Use the <strong className="text-slate-300">Live CSS Selector Sandbox</strong> at the top of this tab to change selectors on the fly!
+                                  </p>
+                                </div>
                               </div>
                             )
                           ) : (
@@ -1848,38 +2131,45 @@ We built a weighted preference model based on your database structure:
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        </section>
+      </div>
+    ) : (
+      <section className="w-full animate-[fadeIn_0.2s_ease-out]">
+        <div className="w-full flex-1 flex flex-col">
+          <div className="bg-[#131314] border border-[#2d2f31]/80 rounded-3xl p-6 shadow-md flex-1 flex flex-col w-full text-xs">
+            {/* TAB 2: EXECUTABLE PYTHON CODE GENERATOR */}
+            {activeTab === "code" && (
+              <div className="flex-1 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#8e918f]">
+                    Fully parameter-synchronized, production ready script. Copy and run directly on your terminal.
+                  </p>
+                  <button
+                    id="copy-code-btn"
+                    onClick={() => handleCopyCode(activePythonCode)}
+                    className="bg-[#1e1f20] hover:bg-[#25272a] border border-[#2d2f31] hover:border-[#9b72f3]/50 text-[#e3e3e3] hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Script</span>
+                      </>
+                    )}
+                  </button>
+                </div>
 
-              {/* TAB 2: EXECUTABLE PYTHON CODE GENERATOR */}
-              {activeTab === "code" && (
-                <div className="flex-1 flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-[#8e918f]">
-                      Fully parameter-synchronized, production ready script. Copy and run directly on your terminal.
-                    </p>
-                    <button
-                      id="copy-code-btn"
-                      onClick={() => handleCopyCode(activePythonCode)}
-                      className="bg-[#1e1f20] hover:bg-[#25272a] border border-[#2d2f31] hover:border-[#9b72f3]/50 text-[#e3e3e3] hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Script</span>
-                        </>
-                      )}
-                    </button>
+                <div className="relative bg-[#0d0d0e] border border-[#2d2f31]/80 rounded-2xl overflow-hidden flex-1 shadow-md min-h-[480px]">
+                  <div className="absolute top-0 left-0 bg-[#1e1f20] border-r border-b border-[#2d2f31] text-[10px] text-[#8e918f] font-mono px-3.5 py-1.5 uppercase rounded-br-lg font-semibold tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> python (scrapling sdk)
                   </div>
-
-                  <div className="relative bg-[#131314] border border-[#2d2f31]/80 rounded-2xl overflow-hidden flex-1 shadow-md">
-                    <div className="absolute top-0 left-0 bg-[#1e1f20] border-r border-b border-[#2d2f31] text-[10px] text-[#8e918f] font-mono px-3.5 py-1 uppercase rounded-br-lg font-semibold tracking-wider">
-                      python (scrapling sdk)
-                    </div>
-                    <pre className="p-5 pt-8 overflow-auto max-h-[460px] font-mono text-[11px] leading-relaxed text-[#4285f4] max-w-full">
+                  <pre className="p-5 pt-10 overflow-auto flex-1 font-mono text-[11px] leading-relaxed text-[#4285f4] max-w-full">
                       {activePythonCode}
                     </pre>
                   </div>
@@ -2894,6 +3184,7 @@ We built a weighted preference model based on your database structure:
             </div>
           </div>
         </section>
+      )}
       </main>
 
       {/* Footer layout */}
